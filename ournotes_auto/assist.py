@@ -6,9 +6,11 @@
 乐队确认页（认出曲目、下载好谱面）→ 玩家点 LIVE START（→ 演出前选项设置 → 玩家点「演出」）→ 加载画面出现时
 就开始等首音符并演奏 → 等玩家点过 LIVE CLEAR，在结算页读成绩。
 
-协力演出（和另外 4 个玩家一起打）在选择难度页认曲目，之后同样等玩家点「准备完成」。等其他玩家准备、加载
-这段画面认不出，和单人一样提前开始同步：同步最多等 ``play.sync.timeout_s``（默认 40s），其他玩家久久不准备
-时这一局就不打了。
+协力演出（和另外 4 个玩家一起打）在选择难度页认曲目：难度就在这一页上选，玩家多半是进来之后才改，所以每次
+看到这一页都核对一次难度，改了就重新认。之后同样等玩家点「准备完成」，等其他玩家准备、加载这段画面认不出，
+和单人一样提前开始同步：同步最多等 ``play.sync.timeout_s``（默认 40s），其他玩家久久不准备时这一局就不打了。
+协力不能暂停，右上角没有暂停按钮，所以同步完不确认画面、演奏中也不检查（见 PlaySession.play 的 confirm_screen
+与 guard），打的是不是这一首只能靠同步结果判断。
 
 开始看画面的时机只能猜：离开乐队确认页后画面认不出 LOADING_S 秒就当作在加载，和 ``run`` 一样穿过加载画面开始
 同步——基线在加载时（画面静止）就取好，演奏画面一出来就能量到第一个音符。不等认出右上角的暂停按钮才开始：
@@ -29,7 +31,7 @@ from .charts.bdon import BdonClient, ChartNotFound
 from .charts.catalog import Catalog, Song
 from .charts.model import Chart
 from .config import Config
-from .nav.screens import Screen
+from .nav.screens import Screen, multi_song
 from .player.guard import LifeDepleted, PlayInterrupted
 from .player.session import PlaySession, SyncFailed
 from .player.sync import SyncTimeout
@@ -85,6 +87,7 @@ class Assist:
         self.clock = time.monotonic
         self._on_band = False  # 最近认出的是乐队确认页（或它上面的弹窗），已经认过曲目
         self._armed: Chart | None = None  # 演奏画面出现时要打的谱面
+        self._multi = False  # _armed 是在协力演出的选择难度页认的（没有暂停按钮，见 _play_once）
         self._retry = False  # _armed 是暂停重试的那一首（歌曲立即从头开始）
         self._last: Chart | None = None  # 上一局的谱面（暂停重试时接着打）
 
@@ -130,17 +133,24 @@ class Assist:
         if screen is Screen.UNKNOWN:
             if self._armed is None:
                 return
-            chart, retry = self._armed, self._retry
+            chart, retry, multi = self._armed, self._retry, self._multi
             seen = self._await_play()
             if seen is None:
                 self._armed, self._retry, self._on_band = None, False, False
-                self._play(chart, retry)
+                self._play(chart, retry, multi)
             elif seen[0] is not Screen.UNKNOWN:
                 self._handle(*seen)  # 等演奏画面时回到了认得出的画面（如乐曲选择页），照常处理
         elif screen in BAND_SCREENS:
+            multi = screen is Screen.MULTI_DIFFICULTY
+            # 协力演出的难度就在这一页上选，玩家多半是进来之后才改：难度变了（或者刚才没认出来）就重新认
+            if multi and self._on_band:
+                _, diff, _ = multi_song(items)
+                if diff is not None and (self._armed is None or diff != self._armed.difficulty):
+                    self._on_band = False
             if not self._on_band:
                 self._on_band, self._retry = True, False
                 self._last = None  # 换了歌：认不出这首时，暂停重试也不能拿上一首的谱面打
+                self._multi = multi
                 self._armed = self._prepare()
         elif screen in BAND_DIALOGS:
             if screen is Screen.LIVE_OPTIONS:
@@ -210,23 +220,28 @@ class Assist:
     def _label(chart: Chart) -> str:
         return f"{chart.title or chart.music_id} {chart.difficulty.upper()}"
 
-    def _play(self, chart: Chart, retry: bool) -> None:
+    def _play(self, chart: Chart, retry: bool, multi: bool = False) -> None:
         self._status("play", self._label(chart))
         try:
-            self._play_once(chart, retry)
+            self._play_once(chart, retry, multi)
         finally:
             self._status("assist")
             if self.tracker is not None:
                 self.tracker.update(self.stats)
 
-    def _play_once(self, chart: Chart, retry: bool) -> None:
+    def _play_once(self, chart: Chart, retry: bool, multi: bool = False) -> None:
+        """``multi``：协力演出。右上角没有暂停按钮（协力不能暂停），所以同步完不确认画面、演奏中也不看它，
+        只靠同步结果判断打的是不是这一首。"""
         self._last = chart
         self.session.learned_offset_ms = self.store.learned_offset_ms + chart_offset_ms(self.cfg, self.store, chart)
         try:
-            outcome = self.session.play(chart, self.stop, retry=retry, confirm_screen=True)
+            outcome = self.session.play(
+                chart, self.stop, retry=retry, confirm_screen=not multi, guard=not multi
+            )
         except (SyncFailed, SyncTimeout, LifeDepleted) as e:
             self.stats.failures += 1
-            logger.warning("%s：%s，这一局不打了（可以暂停 → 重试，会接着打）", self._label(chart), e)
+            hint = "" if multi else "（可以暂停 → 重试，会接着打）"
+            logger.warning("%s：%s，这一局不打了%s", self._label(chart), e, hint)
             return
         except PlayInterrupted as e:
             logger.warning("%s：%s", self._label(chart), e)

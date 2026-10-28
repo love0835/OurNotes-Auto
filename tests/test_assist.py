@@ -14,11 +14,16 @@ from ournotes_auto.player.guard import PlayInterrupted
 from ournotes_auto.player.session import PlayOutcome, SyncFailed
 from ournotes_auto.player.sync import SyncResult
 from ournotes_auto.records import RecordStore
-from ournotes_auto.result_reader import ResultCounts
+from ournotes_auto.result_reader import OcrItem, ResultCounts
 from ournotes_auto.runner import NavigationError, SongLabel
 
 S = Screen
 PLAY = "play"  # 脚本里的这一项：等演奏画面时看到了暂停按钮
+
+
+def multi_items(difficulty: str) -> list[OcrItem]:
+    """协力演出选择难度页上封面左边那个竖排的大字难度（选中的那个）。"""
+    return [OcrItem(790, 172, 52, 115, difficulty.upper())]
 
 
 class FakeNav:
@@ -41,10 +46,13 @@ class FakeNav:
     def look(self, still_ok=False, blocking_ok=False):
         assert still_ok and blocking_ok  # 跟打不能因为画面不动、维护页而重启游戏
         screen = self._next()
+        items = []
+        if isinstance(screen, tuple):  # 脚本里写成 (画面, 识别结果)
+            screen, items = screen
         if screen == PLAY:
             screen = S.UNKNOWN  # 演奏画面 OCR 认不出
         self.prev_screen, self.last_screen = self.last_screen, screen
-        return screen, []
+        return screen, items
 
     def poll_play(self):
         if self.script and self.script[0] == PLAY:
@@ -83,10 +91,10 @@ class FakeSession:
     def __init__(self, fails=0, interrupt=False):
         self.fails, self.interrupt = fails, interrupt
         self.learned_offset_ms = 0.0
-        self.plays = []  # (谱面, retry, confirm_screen)
+        self.plays = []  # (谱面, retry, confirm_screen, guard)
 
-    def play(self, chart, stop=None, retry=False, confirm_screen=False):
-        self.plays.append((chart.key, retry, confirm_screen))
+    def play(self, chart, stop=None, retry=False, confirm_screen=False, guard=True):
+        self.plays.append((chart.key, retry, confirm_screen, guard))
         sync = SyncResult(1.0, 0.0, [], -40.0, 0.835, 1.0, 1.0, 190.0, self.fails <= 0)
         self.fails -= 1
         if self.fails >= 0:
@@ -146,7 +154,7 @@ def test_plays_after_player_starts(tmp_path):
     assist, nav, store = make(tmp_path, script)
     stats = assist.run()
     assert nav.calls == ["identify", "speed", "result"]
-    assert assist.session.plays == [("100008_expert", False, True)]  # 先确认在演奏画面上再发触控
+    assert assist.session.plays == [("100008_expert", False, True, True)]  # 先确认在演奏画面上再发触控
     assert stats.plays == 1 and stats.full_combo == 1
     assert len(store.history()) == 1 and store.history()[0].fast == 320
 
@@ -174,9 +182,28 @@ def test_multi_live(tmp_path):
     script = [S.MULTI_DIFFICULTY, S.MULTI_DIFFICULTY, S.UNKNOWN, PLAY, S.RESULT]
     assist, nav, store = make(tmp_path, script)
     stats = assist.run()
-    assert nav.calls == ["identify", "result"]  # 只认一次：还是同一首
-    assert assist.session.plays == [("100008_expert", False, True)]
+    assert nav.calls == ["identify", "result"]  # 只认一次：难度没变
+    # 协力演出没有暂停按钮：同步完不确认画面，演奏中也不看它
+    assert assist.session.plays == [("100008_expert", False, False, False)]
     assert stats.plays == 1 and len(store.history()) == 1
+
+
+def test_multi_live_difficulty_changed(tmp_path):
+    """协力演出的难度就在选择难度页上选：玩家认完之后才改难度，要按改后的难度重新认。"""
+    script = [
+        (S.MULTI_DIFFICULTY, multi_items("easy")),
+        (S.MULTI_DIFFICULTY, multi_items("easy")),  # 没改：不重新认
+        (S.MULTI_DIFFICULTY, multi_items("expert")),
+        S.UNKNOWN,
+        PLAY,
+        S.RESULT,
+    ]
+    labels = iter([SongLabel("诗超绊", "easy"), SongLabel("诗超绊", "expert")])
+    assist, nav, _ = make(tmp_path, script)
+    nav.selected_song = lambda: (nav.calls.append("identify"), next(labels))[1]
+    assist.run()
+    assert nav.calls.count("identify") == 2
+    assert [key for key, *_ in assist.session.plays] == ["100008_expert"]
 
 
 def test_dialog_fade_keeps_song(tmp_path):
@@ -201,7 +228,7 @@ def test_retry_after_sync_failure(tmp_path):
     script = [S.BAND_CONFIRM, S.UNKNOWN, PLAY, S.UNKNOWN, S.PAUSE, S.RETRY_CONFIRM, S.UNKNOWN, PLAY, S.RESULT]
     assist, nav, store = make(tmp_path, script, session=FakeSession(fails=1))
     stats = assist.run()
-    assert assist.session.plays == [("100008_expert", False, True), ("100008_expert", True, True)]
+    assert assist.session.plays == [("100008_expert", False, True, True), ("100008_expert", True, True, True)]
     assert nav.calls == ["identify", "result"]
     assert stats.plays == 1 and stats.failures == 1 and len(store.history()) == 1
 
@@ -250,7 +277,7 @@ def test_syncs_through_loading(tmp_path):
     script = [S.BAND_CONFIRM] + [S.UNKNOWN] * 50
     assist, nav, _ = make(tmp_path, script)
     assist.run()
-    assert assist.session.plays == [("100008_expert", False, True)]  # 仍然先确认在演奏画面再发触控
+    assert assist.session.plays == [("100008_expert", False, True, True)]  # 仍然先确认在演奏画面再发触控
     assert nav.calls == ["identify", "result"]
 
 
@@ -267,4 +294,4 @@ def test_difficulty_from_level(tmp_path, label, want):
     """跟打没有难度选项：画面上的难度读不出时按等级定难度，定不下来就不打。"""
     assist, _, _ = make(tmp_path, [S.BAND_CONFIRM, S.UNKNOWN, PLAY], label=label)
     assist.run()
-    assert [key for key, _, _ in assist.session.plays] == ([want] if want else [])
+    assert [key for key, *_ in assist.session.plays] == ([want] if want else [])

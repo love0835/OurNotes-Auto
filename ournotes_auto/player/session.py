@@ -149,15 +149,18 @@ class PlaySession:
         require_sync_ok: bool = True,
         retry: bool = False,
         confirm_screen: bool = False,
+        guard: bool = True,
     ) -> PlayOutcome:
         """需在进入演奏画面、首音符出现之前调用（通常在点击开始后立即调用）。
 
         ``retry``：刚在暂停菜单点了重试（歌曲立即从头开始，沿用上一次的跟踪区基线，见 player/sync.py）。
         ``confirm_screen``：同步完成后先确认画面上有演奏画面的暂停按钮，没有就不发触控、抛 :class:`PlayInterrupted`
-        （跟打时开始演奏的时机是猜的，可能同步到了别的画面上的变化）。"""
+        （跟打时开始演奏的时机是猜的，可能同步到了别的画面上的变化）。
+        ``guard``：演奏中看右上角的暂停按钮确认还在演奏画面（见 player/guard.py）。协力演出没有暂停按钮，
+        两项都要关掉，这时只靠同步结果判断打的是不是这一首。"""
         # 同步和演奏用最高优先级，打完恢复：导航、文字识别用不着，一直占着会抢别的程序的 CPU
         with raised_thread_priority():
-            return self._play(chart, stop, require_sync_ok, retry, confirm_screen)
+            return self._play(chart, stop, require_sync_ok, retry, confirm_screen, guard)
 
     def _play(
         self,
@@ -166,6 +169,7 @@ class PlaySession:
         require_sync_ok: bool,
         retry: bool,
         confirm_screen: bool = False,
+        guard_screen: bool = True,
     ) -> PlayOutcome:
         plan, tracker = self.prepare(chart, retry)
         self.last_fps = None
@@ -194,7 +198,7 @@ class PlaySession:
         if watcher is not None:
             watcher.start()
         guard = None
-        if self.guard_template is not None:
+        if guard_screen and self.guard_template is not None:
             pc = self.cfg.play
             guard = PlayGuard(
                 timed,
