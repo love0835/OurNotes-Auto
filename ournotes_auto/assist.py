@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 import logging
+import subprocess
 import threading
 import time
 from typing import TYPE_CHECKING
@@ -248,9 +249,15 @@ class Assist:
             return
         except InterruptedError:  # 同步时按了停止
             return
+        except (OSError, RuntimeError, subprocess.SubprocessError) as e:
+            # 触控后端断了（别的程序重启了 adb server 等）：只算这一局失败，下一局重开时会自己连回来
+            self.stats.failures += 1
+            logger.warning("%s：触控出错，这一局不打了（%s）", self._label(chart), e)
+            logger.debug("触控出错", exc_info=True)
+            return
         try:
             counts = self.nav.read_result(chart.judged_count or None)
-        except NavigationError as e:
+        except (OSError, RuntimeError, subprocess.SubprocessError) as e:
             if not self.stop.is_set():
                 logger.warning("没读到这一局的结算：%s", e)
             return

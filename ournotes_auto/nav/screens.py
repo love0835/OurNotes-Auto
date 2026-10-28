@@ -230,7 +230,7 @@ DIFFICULTIES = ("easy", "normal", "hard", "expert")
 MULTI_TITLE_ROI: Rect = (500, 10, 280, 60)
 MULTI_READY_ROI: Rect = (1000, 600, 260, 60)
 MULTI_SONG_TITLE_ROI: Rect = (740, 372, 340, 48)
-MULTI_DIFF_ROI: Rect = (760, 140, 110, 180)
+MULTI_DIFF_ROI: Rect = (700, 60, 260, 400)
 MULTI_LEVEL_ROW_ROI: Rect = (760, 500, 500, 70)
 MULTI_LEVEL_GAP = 60  # 等级数字在难度名正上方这么多像素以内
 
@@ -489,12 +489,13 @@ def multi_song(items: list[OcrItem]) -> tuple[str, str | None, int | None]:
     """协力演出选择难度页上的 (曲名, 选中的难度, 该难度的等级)。
 
     难度看封面左边竖排的大字——四个难度并排在下面一行，光凭文字看不出选中的是哪个，
-    但大字只有选中的那个。等级取那一格难度名正上方的数字。
+    但大字只有选中的那个。竖排（高大于宽）是它和那一行的区别：EXPERT 比 HARD 长，
+    框的高和宽都更大，所以范围放得宽些，只靠竖排来区分。等级取那一格难度名正上方的数字。
     """
     parts = sorted((it for it in items if in_roi(it, MULTI_SONG_TITLE_ROI)), key=lambda it: it.x)
     title = " ".join(it.text.strip() for it in parts)
     diff = next(
-        (d for it in items if in_roi(it, MULTI_DIFF_ROI) and (d := parse_difficulty(it.text))),
+        (d for it in items if it.h > it.w and in_roi(it, MULTI_DIFF_ROI) and (d := parse_difficulty(it.text))),
         None,
     )
     return title, diff, multi_level(items, diff)

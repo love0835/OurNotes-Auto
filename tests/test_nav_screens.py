@@ -225,6 +225,20 @@ def test_multi_song():
     assert multi_song(load("multi_difficulty")) == ("Ether", "hard", 18)
 
 
+def test_multi_song_tall_difficulty():
+    """EXPERT 的竖排大字比 HARD 长，框的高和宽都更大；下面那行的 EXPERT 是横排的，不是选中的那个。"""
+    row = [
+        OcrItem(782, 390, 110, 37, "Ether"),
+        OcrItem(782, 543, 51, 24, "EASY"),
+        OcrItem(800, 521, 17, 24, "8"),
+        OcrItem(1164, 543, 69, 24, "EXPERT"),
+        OcrItem(1178, 516, 42, 33, "26"),
+    ]
+    assert multi_song([OcrItem(786, 150, 70, 230, "EXPERT"), *row]) == ("Ether", "expert", 26)
+    assert multi_song([OcrItem(790, 172, 52, 115, "EASY"), *row]) == ("Ether", "easy", 8)
+    assert multi_song(row) == ("Ether", None, None)  # 大字没读到：不猜，交给调用方重试
+
+
 def test_challenge_band_confirm_song():
     assert band_confirm_song(load("challenge_band_confirm")) == ("梦我梦中", "expert")
 

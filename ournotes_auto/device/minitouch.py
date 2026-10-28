@@ -159,6 +159,9 @@ class MinitouchTouch:
         return screen
 
     def _spawn(self) -> None:
+        # 先连回设备：别的程序重启过 adb server 时它会掉线，这时 adb shell 直接报 device not found，
+        # flush() 里的自动重启就必定失败（#minitouch 连接断开后整个任务崩掉）
+        subprocess.run([self._adb, "connect", self._serial], capture_output=True, timeout=15)
         self._kill_server()
         self._proc = subprocess.Popen(
             [self._adb, "-s", self._serial, "shell", "-T", REMOTE_BIN, "-i", "-d", self.device],
