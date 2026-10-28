@@ -6,6 +6,10 @@
 乐队确认页（认出曲目、下载好谱面）→ 玩家点 LIVE START（→ 演出前选项设置 → 玩家点「演出」）→ 加载画面出现时
 就开始等首音符并演奏 → 等玩家点过 LIVE CLEAR，在结算页读成绩。
 
+协力演出（和另外 4 个玩家一起打）在选择难度页认曲目，之后同样等玩家点「准备完成」。等其他玩家准备、加载
+这段画面认不出，和单人一样提前开始同步：同步最多等 ``play.sync.timeout_s``（默认 40s），其他玩家久久不准备
+时这一局就不打了。
+
 开始看画面的时机只能猜：离开乐队确认页后画面认不出 LOADING_S 秒就当作在加载，和 ``run`` 一样穿过加载画面开始
 同步——基线在加载时（画面静止）就取好，演奏画面一出来就能量到第一个音符。不等认出右上角的暂停按钮才开始：
 按钮是淡入的，认出来时歌往往已经开始、第一个音符已经落下，跟踪区再也等不到静止（实测每局都卡在这里）。
@@ -39,7 +43,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-BAND_SCREENS = (Screen.BAND_CONFIRM, Screen.CHALLENGE_BAND_CONFIRM)
+# 认曲目的页面：自由演出 / 挑战演出的乐队确认页，协力演出的选择难度页
+BAND_SCREENS = (Screen.BAND_CONFIRM, Screen.CHALLENGE_BAND_CONFIRM, Screen.MULTI_DIFFICULTY)
 # 乐队确认页上弹出的窗口：关掉后还是同一首歌，不用重新认曲目
 BAND_DIALOGS = (
     Screen.LIVE_OPTIONS,

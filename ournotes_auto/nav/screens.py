@@ -23,6 +23,9 @@ class Screen(StrEnum):
     # 挑战演出（部分活动期间开放，从演出首页的「挑战演出」进）：选曲页只有活动指定的几首歌，乐队确认页消耗挑战pt（CP）
     CHALLENGE_SONG_SELECT = "挑战演出-乐曲选择"
     CHALLENGE_BAND_CONFIRM = "挑战演出-乐队确认"
+    # 协力演出（和另外 4 个玩家一起打）：房间里各自选难度，右下「准备完成」。版面和单人乐队确认页完全不同，
+    # 曲名、封面、难度都在右半边；只用来认曲目，开始演出、结算都由玩家自己点（见 assist.py）
+    MULTI_DIFFICULTY = "协力演出-选择难度"
     CP_SETTING = "挑战pt消耗设置"  # 挑战演出乐队确认页「CP 设置」打开的弹窗：每局消耗 200/400/800/1600
     LIVE_OPTIONS = "演出前选项设置"
     LB_SETTING = "LB消耗设置"
@@ -222,6 +225,15 @@ DIFFICULTY_ROI: Rect = (100, 650, 170, 38)
 LEVEL_ROI: Rect = (228, 656, 50, 32)
 DIFFICULTIES = ("easy", "normal", "hard", "expert")
 
+# 协力演出的选择难度页：曲名在封面下方，难度是封面左边竖排的大字（选中的那个），
+# 四个难度与等级并排在下面一行，右下角是「准备完成」
+MULTI_TITLE_ROI: Rect = (500, 10, 280, 60)
+MULTI_READY_ROI: Rect = (1000, 600, 260, 60)
+MULTI_SONG_TITLE_ROI: Rect = (740, 372, 340, 48)
+MULTI_DIFF_ROI: Rect = (760, 140, 110, 180)
+MULTI_LEVEL_ROW_ROI: Rect = (760, 500, 500, 70)
+MULTI_LEVEL_GAP = 60  # 等级数字在难度名正上方这么多像素以内
+
 
 def _compact(text: str) -> str:
     return re.sub(r"\s+", "", text)
@@ -379,6 +391,9 @@ def classify(items: list[OcrItem]) -> Screen:
         if next_button(items) and (find(items, "详情") or find(items, "绊EXP")):
             return Screen.RESULT_EXP_NEXT
         return Screen.RESULT_OTHER
+    # 协力演出的选择难度页：标题在画面中央（不在左上角的 TITLE_ROI 里），右下是「准备完成」
+    if find(items, "选择难度", MULTI_TITLE_ROI) and find(items, "准备完成", MULTI_READY_ROI):
+        return Screen.MULTI_DIFFICULTY
     for text, screen in _TITLES.items():
         if find(items, text, TITLE_ROI):
             if screen is Screen.SONG_SELECT and _challenge_song_select(items):
@@ -467,6 +482,39 @@ def parse_difficulty(text: str) -> str | None:
     for d in DIFFICULTIES:
         if d.upper()[:3] in t:
             return d
+    return None
+
+
+def multi_song(items: list[OcrItem]) -> tuple[str, str | None, int | None]:
+    """协力演出选择难度页上的 (曲名, 选中的难度, 该难度的等级)。
+
+    难度看封面左边竖排的大字——四个难度并排在下面一行，光凭文字看不出选中的是哪个，
+    但大字只有选中的那个。等级取那一格难度名正上方的数字。
+    """
+    parts = sorted((it for it in items if in_roi(it, MULTI_SONG_TITLE_ROI)), key=lambda it: it.x)
+    title = " ".join(it.text.strip() for it in parts)
+    diff = next(
+        (d for it in items if in_roi(it, MULTI_DIFF_ROI) and (d := parse_difficulty(it.text))),
+        None,
+    )
+    return title, diff, multi_level(items, diff)
+
+
+def multi_level(items: list[OcrItem], difficulty: str | None) -> int | None:
+    """协力演出选择难度页下面那一行里 ``difficulty`` 那一格的等级（难度名正上方的数字）。"""
+    if difficulty is None:
+        return None
+    label = next(
+        (it for it in items if in_roi(it, MULTI_LEVEL_ROW_ROI) and parse_difficulty(it.text) == difficulty),
+        None,
+    )
+    if label is None:
+        return None
+    lo, hi = label.x - 20, label.x + label.w + 20
+    above = [it for it in items if 0 < label.cy - it.cy < MULTI_LEVEL_GAP and lo <= it.x + it.w / 2 <= hi]
+    for it in sorted(above, key=lambda it: label.cy - it.cy):
+        if (level := parse_level(it.text)) is not None:
+            return level
     return None
 
 

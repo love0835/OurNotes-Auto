@@ -31,6 +31,7 @@ from ournotes_auto.nav.screens import (
     login_expanded,
     login_rows,
     maintenance_period,
+    multi_song,
     note_speed,
     parse_difficulty,
     parse_level,
@@ -80,6 +81,8 @@ def load(name: str) -> list[OcrItem]:
         ("challenge_song_select_last", Screen.CHALLENGE_SONG_SELECT),
         ("challenge_song_select_ap", Screen.CHALLENGE_SONG_SELECT),  # 选中的歌已 AP（右侧有 ALL PERFECT）
         ("challenge_band_confirm", Screen.CHALLENGE_BAND_CONFIRM),  # 右下是「CP 设置」，顶栏是 CP
+        # 协力演出的选择难度页：标题在画面中央，右下是「准备完成」（版面和单人乐队确认页完全不同）
+        ("multi_difficulty", Screen.MULTI_DIFFICULTY),
         ("challenge_cp_setting", Screen.CP_SETTING),
         ("challenge_cp_setting_short", Screen.CP_SETTING),
         ("home", Screen.HOME),
@@ -214,6 +217,12 @@ def test_band_confirm_song():
     assert band_confirm_song(load("band_confirm")) == ("迷星叫", "expert")
     assert band_confirm_song(load("band_confirm_avemujica")) == ("AveMujica", "expert")
     assert band_confirm_song(load("band_confirm_lb_timer")) == ("无路矢", "expert")  # 繁体字都转成了简体
+
+
+def test_multi_song():
+    """协力演出：曲名在封面下方，难度看封面左边竖排的大字（四个难度并排那行看不出选中哪个），
+    等级取那一格难度名正上方的数字。"""
+    assert multi_song(load("multi_difficulty")) == ("Ether", "hard", 18)
 
 
 def test_challenge_band_confirm_song():

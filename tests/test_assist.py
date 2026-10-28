@@ -169,6 +169,16 @@ def test_back_to_song_select_disarms(tmp_path):
     assert len(assist.session.plays) == 1
 
 
+def test_multi_live(tmp_path):
+    """协力演出：在选择难度页认曲目，之后和单人一样（等其他玩家准备、加载时画面认不出）。"""
+    script = [S.MULTI_DIFFICULTY, S.MULTI_DIFFICULTY, S.UNKNOWN, PLAY, S.RESULT]
+    assist, nav, store = make(tmp_path, script)
+    stats = assist.run()
+    assert nav.calls == ["identify", "result"]  # 只认一次：还是同一首
+    assert assist.session.plays == [("100008_expert", False, True)]
+    assert stats.plays == 1 and len(store.history()) == 1
+
+
 def test_dialog_fade_keeps_song(tmp_path):
     """点 LIVE START 后弹窗淡入时短暂认不出画面：回到乐队确认页也不重新认曲目。"""
     script = [S.BAND_CONFIRM, S.UNKNOWN, S.BAND_CONFIRM, S.LB_SETTING, S.BAND_CONFIRM, S.UNKNOWN, PLAY]

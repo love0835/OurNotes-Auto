@@ -15,6 +15,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 JACKET_ROI = (13, 598, 95, 95)  # 乐队确认页左下角封面（1280x720 下的 x, y, w, h）
+MULTI_JACKET_ROI = (855, 80, 300, 300)  # 协力演出选择难度页右上角的大封面
 DESIGN_W, DESIGN_H = 1280, 720
 
 

@@ -69,7 +69,7 @@ All 48 EXPERT charts played while running smoothly have been ALL PERFECT at leas
 Known limitations:
 
 - When the emulator stutters (dropped frames, jittery touch latency), complex songs may lose a few PERFECTs or even break the combo. Both sync and touch rely on the emulator producing frames and receiving touches on time, so any hiccup causes drift, and the AP rate drops noticeably at low frame rates (see the table above). Closing other CPU-hungry programs, giving the emulator enough CPU and memory, and lowering the game's effect and performance levels helps a lot
-- Only Free LIVE and Challenge LIVE (during events) are supported. Co-op LIVE and other modes are not
+- Automatic play supports Free LIVE and Challenge LIVE (during events) only. For Co-op LIVE use Assist Play: you pick the song and tap Ready, and it recognizes the song on the difficulty-select screen and just plays the notes. Other modes are not supported
 - Song title OCR occasionally fails; when recognition fails, that round is abandoned and the next song is tried
 - Songs whose first note comes very early (already on screen before the transition ends) may fail to sync; in that case the round is paused and retried
 - So far mainly verified with MuMu + International server, with effect and performance levels turned down; on the Japanese server only Free LIVE, AP Completion and Claim Dailies have been verified

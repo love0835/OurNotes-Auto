@@ -55,7 +55,7 @@ from ..player.guard import load_template, pause_visible
 from ..records import RecordStore, game_day
 from ..result_reader import OcrItem, ResultCounts, merge, parse_int, parse_totals
 from ..runner import GameUpdateRequired, LbExhausted, NavigationError, ScreenFrozen, ServerMaintenance, SongLabel
-from .jacket import JacketMatcher, crop_jacket
+from .jacket import JACKET_ROI, MULTI_JACKET_ROI, JacketMatcher, crop_jacket
 from .ocr import MaaOcr
 from .screens import (
     BOTTOM_LEFT_ROI,
@@ -99,6 +99,7 @@ from .screens import (
     login_rows,
     maintenance_period,
     next_button,
+    multi_song,
     note_speed,
     parse_level,
     result_cells,
@@ -748,24 +749,31 @@ class GameNavigator(SongSelectMixin, DailyMixin, StoryMixin, ChallengeMixin, Acc
                 return
 
     def selected_song(self) -> SongLabel:
-        """刚进入乐队确认页时曲名还可能在动画中（曾读成单个「编」字），连续两次读数一致才采用。"""
+        """乐队确认页（或协力演出的选择难度页）上的曲目信息。
+
+        刚进入乐队确认页时曲名还可能在动画中（曾读成单个「编」字），连续两次读数一致才采用。
+        """
         prev = None
         for _ in range(6):
             screen, items = self.look()
-            if screen not in (Screen.BAND_CONFIRM, Screen.CHALLENGE_BAND_CONFIRM):
+            if screen is Screen.MULTI_DIFFICULTY:  # 协力演出：曲名、难度、等级、封面都在右半边
+                label = SongLabel(*multi_song(items))
+            elif screen in (Screen.BAND_CONFIRM, Screen.CHALLENGE_BAND_CONFIRM):
+                title, diff = band_confirm_song(items)
+                label = SongLabel(title, diff, parse_level(self.ocr.read_text(self._frame, LEVEL_ROI)))
+            else:
                 raise self._fail("不在乐队确认页，无法读取曲名")
-            title, diff = band_confirm_song(items)
-            label = SongLabel(title, diff, parse_level(self.ocr.read_text(self._frame, LEVEL_ROI)))
             if label == prev:
                 break
             prev = label
             self._sleep(0.3)
         else:
-            logger.debug("乐队确认页读数不稳定，采用最后一次")
+            logger.debug("%s读数不稳定，采用最后一次", screen)
         if self.jackets is not None:
-            label = label._replace(jacket=self.jackets.identify(crop_jacket(self._frame)))
+            roi = MULTI_JACKET_ROI if screen is Screen.MULTI_DIFFICULTY else JACKET_ROI
+            label = label._replace(jacket=self.jackets.identify(crop_jacket(self._frame, roi)))
         logger.debug(
-            "乐队确认页：曲名 %r，难度 %s，等级 %s，封面 %s", label.title, label.difficulty, label.level, label.jacket
+            "%s：曲名 %r，难度 %s，等级 %s，封面 %s", screen, label.title, label.difficulty, label.level, label.jacket
         )
         return label
 
