@@ -459,6 +459,26 @@ def test_worker_args_notify():
         worker_args("start", {**attach, "notify_channel": "telegram"}, {})
 
 
+def test_worker_args_assist():
+    """跟打只需要设备、触控方式和拟人化选项；命令行能解析回去。"""
+    from ournotes_auto.cli import build_parser
+    from ournotes_auto.commands import check_touch_config
+    from ournotes_auto.config import Config, apply_override
+
+    attach = {"touch": "mumu", "human_great": 5, "human_timing": 3, "human_position": False, "watch_combo": True}
+    args = worker_args("assist", attach, {"device.instance": "1"})
+    assert args[-2:] == ["assist", "--watch-combo"]
+    parsed = build_parser().parse_args(args)
+    assert parsed.command == "assist" and parsed.watch_combo
+    cfg = Config()
+    for item in parsed.set:
+        key, _, value = item.partition("=")
+        apply_override(cfg, key, value)
+    check_touch_config(cfg)
+    assert cfg.device.touch == "mumu" and cfg.play.touch.great_ratio == 0.05 and cfg.play.touch.jitter_ms == 3.0
+    assert worker_args("assist", {**attach, "watch_combo": False}, {})[-1] == "assist"
+
+
 def test_global_args():
     """「调试日志」开着时子进程加 -v；旧资源的 attach 里没有这一项时按关闭。"""
     from ournotes_auto.cli import build_parser

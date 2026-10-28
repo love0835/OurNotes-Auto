@@ -50,6 +50,9 @@ ournotes-auto run --challenge --mode rotate              # チャレンジライ
 ournotes-auto run --challenge --challenge-cost 1600 -n 3 # チャレンジライブ、1 回 1600 CP（報酬 ×8）、3 回プレイ
 ournotes-auto run --challenge --mode ap_first           # チャレンジライブ：EXPERT でまだ AP していない曲を先にプレイし、すべて AP したら順番にプレイ
 
+# 演奏アシスト：曲選択と開始は自分で行い、演奏だけ自動（画面遷移の操作やゲームの起動・再起動はせず、リザルト画面で ⇄ を押して FAST/SLOW を読むだけ）。止めるまで動き続ける
+ournotes-auto assist
+
 # ゲームを起動してホーム画面に入る。デイリー報酬を受け取る（デフォルトではストーリー閲覧・イベントストーリー以外の 7 項目をすべて受け取り、--jobs で一部だけ実行）
 ournotes-auto start
 ournotes-auto switch-account user_123   # 現在のアカウントからログアウトし、ログイン履歴からアカウント名に user_123 を含むアカウントを選んでログインし、ホーム画面に入る

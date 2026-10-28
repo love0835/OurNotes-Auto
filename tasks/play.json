@@ -87,6 +87,15 @@
                 "ChallengeCost",
                 "MaxPlays"
             ]
+        },
+        {
+            "name": "跟打",
+            "label": "$task.Assist",
+            "entry": "OurNotes_Assist",
+            "group": [
+                "play"
+            ],
+            "description": "$task.Assist.desc"
         }
     ],
     "option": {

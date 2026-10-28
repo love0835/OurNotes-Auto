@@ -162,8 +162,11 @@ def open_context(
     watch_combo: bool = False,
     record: bool = False,
     data_dir: str = "data",
+    passive: bool = False,
 ):
-    """连接模拟器、加载曲库（封面在后台加载），产出 :class:`TaskContext`；``stop`` 置位后导航与演奏会尽快退出。"""
+    """连接模拟器、加载曲库（封面在后台加载），产出 :class:`TaskContext`；``stop`` 置位后导航与演奏会尽快退出。
+
+    ``passive``：跟打（玩家自己操作）：导航不重启游戏（认不出画面、画面不动都不管），读结算时不翻页。"""
     from .nav.navigator import GameNavigator
     from .player.monitor import combo_reader
     from .player.session import PlaySession
@@ -192,10 +195,11 @@ def open_context(
             ocr,
             stop,
             jackets=jackets,
-            restart_app=restart_app,
-            app_running=lambda: adb.app_running(cfg.device),
+            restart_app=None if passive else restart_app,
+            app_running=None if passive else lambda: adb.app_running(cfg.device),
             store=store,
         )
+        nav.passive = passive
         # 演奏界面连击数小图 → 数字（结束后在日志里列出断连处附近的音符，调试漏判用）
         reader = combo_reader(ocr.read_text) if watch_combo else None
         session = PlaySession(cfg, source, touch, combo_reader=reader)

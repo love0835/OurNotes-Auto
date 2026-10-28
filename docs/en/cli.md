@@ -50,6 +50,9 @@ ournotes-auto run --challenge --mode rotate              # Challenge LIVE (durin
 ournotes-auto run --challenge --challenge-cost 1600 -n 3 # Challenge LIVE, 1600 CP per round (rewards ×8), 3 rounds
 ournotes-auto run --challenge --mode ap_first           # Challenge LIVE: play EXPERT songs that aren't AP yet first, then rotate once all are AP
 
+# Assist Play: pick songs and start them yourself; it plays the notes automatically (no navigation, never starts/restarts the game, only taps ⇄ on the result page to read FAST/SLOW); runs until stopped
+ournotes-auto assist
+
 # Start the game and enter the Home screen; claim daily rewards (by default, all seven items except stories and event stories; --jobs to do only some of them)
 ournotes-auto start
 ournotes-auto switch-account user_123   # log out of the current account, log in to the account whose name contains user_123 from the login history, then enter the Home screen

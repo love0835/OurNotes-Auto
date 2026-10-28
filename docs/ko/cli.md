@@ -50,6 +50,9 @@ ournotes-auto run --challenge --mode rotate              # 챌린지 라이브(�
 ournotes-auto run --challenge --challenge-cost 1600 -n 3 # 챌린지 라이브, 판당 1600 CP(보상 ×8), 3판 플레이
 ournotes-auto run --challenge --mode ap_first           # 챌린지 라이브: EXPERT에서 아직 AP를 못 한 곡부터, 모두 AP면 순환 플레이
 
+# 연주 어시스트: 곡 선택과 시작은 직접 하고 연주만 자동(화면 이동 조작, 게임 실행/재시작 없음. 결과 화면에서 ⇄ 를 눌러 FAST/SLOW만 읽음). 멈출 때까지 계속 실행
+ournotes-auto assist
+
 # 게임을 실행하고 홈 화면으로 진입. 데일리 보상 수령(기본은 스토리 보기·이벤트 스토리를 뺀 7개 항목 모두, --jobs로 일부만 지정)
 ournotes-auto start
 ournotes-auto switch-account user_123   # 현재 계정에서 로그아웃하고, 로그인 기록에서 계정 이름에 user_123이 들어간 계정으로 로그인한 뒤 홈 화면으로 진입

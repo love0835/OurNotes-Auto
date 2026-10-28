@@ -209,6 +209,11 @@ def check_run_config(cfg: Config) -> None:
             parse_daily_time(claim)
         except ValueError as e:
             raise SetupError(f"每天领取日常的{e}") from None
+    check_touch_config(cfg)
+
+
+def check_touch_config(cfg: Config) -> None:
+    """检查拟人化的触控选项。"""
     touch = cfg.play.touch
     if not 0 <= touch.great_ratio <= MAX_GREAT_RATIO:
         raise SetupError(f"故意打 GREAT 的比例应在 0~{MAX_GREAT_RATIO}：{touch.great_ratio}")
@@ -296,6 +301,26 @@ def cmd_run(cfg: Config, args) -> int:
         return EXIT_UPDATE
     # 服务器维护时任务算失败（打过几局也一样，没打完）
     return 0 if (stats.plays or not stats.failures) and not stats.maintenance else 1
+
+
+def cmd_assist(cfg: Config, args) -> int:
+    """跟打：玩家自己选歌、开始演出，演奏时自动打歌；除了在结算页点 ⇄ 读 FAST/SLOW，不做任何界面操作。"""
+    from .assist import Assist
+    from .stats import Library, Tracker
+
+    check_touch_config(cfg)
+    stop = args.stop
+    with open_context(cfg, stop, watch_combo=args.watch_combo, record=args.record, passive=True) as ctx:
+        tracker = Tracker("data", getattr(args, "label", None) or "命令行", library=Library.from_catalog(ctx.catalog))
+        assist = Assist(cfg, ctx.nav, ctx.session, ctx.client, ctx.catalog, ctx.store, stop, tracker)
+        try:
+            stats = assist.run()
+        except KeyboardInterrupt:
+            stop.set()
+            logger.info("已中断（共演奏 %d 局）", assist.stats.plays)
+            return 130
+    args.summary = stats.summary()  # 出错时推送
+    return 0
 
 
 def _launch_game(cfg: Config) -> bool:
@@ -557,6 +582,14 @@ def register(sub) -> None:
     sp.add_argument("--watch-combo", action="store_true", help=WATCH_COMBO_HELP)
     sp.add_argument("--record", action="store_true", help="同步失败时保存跟踪区截图到 debug/sync")
     sp.set_defaults(func=cmd_run)
+
+    sp = sub.add_parser(
+        "assist",
+        help="跟打：自己选歌、点开始，演奏时自动打歌（除了在结算页点 ⇄ 读 FAST/SLOW，不做任何界面操作），一直运行到停止",
+    )
+    sp.add_argument("--watch-combo", action="store_true", help=WATCH_COMBO_HELP)
+    sp.add_argument("--record", action="store_true", help="同步失败时保存跟踪区截图到 debug/sync")
+    sp.set_defaults(func=cmd_assist)
 
     def add_start_args(p) -> None:
         p.add_argument("song", help="曲目 ID 或曲名")

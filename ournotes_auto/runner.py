@@ -198,6 +198,85 @@ def identify_song(catalog: Catalog, label: SongLabel, difficulty: str) -> tuple[
     return by_title[0], f"曲名匹配度 {by_title[1]:.0f}"
 
 
+def chart_offset_ms(config: Config, store: RecordStore, chart: Chart) -> float:
+    """这张谱面自己学到的 offset（``autotune.per_chart`` 关着时为 0）。"""
+    at = config.autotune
+    if not (at.enabled and at.per_chart):
+        return 0.0
+    value = store.chart_offset_ms(chart.music_id, chart.difficulty, config.game.note_speed)
+    if value:
+        logger.debug("%s %s 的谱面 offset %+.1fms", chart.title or chart.music_id, chart.difficulty.upper(), value)
+    return value
+
+
+def record_result(config: Config, store: RecordStore, outcome: PlayOutcome, rc: ResultCounts) -> PlayResult:
+    """记下一局的结算（判定数、FAST/SLOW 可信时顺便修正 offset），返回这条记录。"""
+    judgements = ("perfect", "great", "good", "bad")
+    if config.play.touch.great_ratio > 0:
+        judgements = ("perfect", "good", "bad")  # 故意打的 GREAT 偏离 60ms 以上，不拿来修正 offset
+    fast, slow = timing_counts(rc, judgements)
+    total = sum(v for v in rc.counts.values() if v is not None)
+    missed = sum(rc.counts.get(j) or 0 for j in ("good", "bad", "miss"))
+    combo = rc.combo
+    complete = len(rc.counts) == 5 and None not in rc.counts.values()
+    if complete and total and not missed and combo != total:
+        # 全连时最大连击就是总数（结算页的连击数偶尔少读开头细长的 1）
+        combo = total
+    elif complete and combo is not None and not -(-(total - missed) // (missed + 1)) <= combo <= total:
+        # 断了 missed 次，最长的一段至少有平均长度
+        logger.warning("最大连击读数 %d 与判定数矛盾，不记录", combo)
+        combo = None
+    result = PlayResult(
+        music_id=outcome.chart.music_id,
+        difficulty=outcome.chart.difficulty,
+        perfect=rc.counts.get("perfect"),
+        great=rc.counts.get("great"),
+        good=rc.counts.get("good"),
+        bad=rc.counts.get("bad"),
+        miss=rc.counts.get("miss"),
+        fast=fast,
+        slow=slow,
+        max_combo=combo,
+        score=rc.score,
+        offset_ms=outcome.offset_ms,
+        sync_error_ms=outcome.sync.rms_ms,
+        max_late_ms=outcome.stats.max_late_ms,
+        stalls=[[round(a), round(b)] for a, b in outcome.stalls] or None,
+    )
+    # 执行经常迟到或被中断时，FAST/SLOW 不代表 offset 偏差，只记录不修正（偶发一两次迟到不影响）；
+    # 大量 MISS 多半是同步到了错误的音符（整体错开），FAST/SLOW 同样没有意义
+    st = outcome.stats
+    late = st.late_count(4.0)
+    if st.aborted or late > max(3, 0.01 * len(st.lateness_ms)):
+        why = f"本局执行不稳定（{late} 批迟到超过 4ms）"
+    elif total and missed > 0.1 * total:
+        why = f"GOOD/BAD/MISS 共 {missed} 个（总 {total}），可能同步到了错误的音符"
+    else:
+        why = None
+    if why is None:
+        label = f"{outcome.chart.title or outcome.chart.music_id} {outcome.chart.difficulty.upper()}"
+        store.autotune(result, config.autotune, config.game.note_speed, label)
+    else:
+        store.append(result)
+        logger.warning("%s，不修正 offset", why)
+    tag = "AP" if result.all_perfect else "FC" if result.full_combo else ""
+    if outcome.stalls:
+        tag += f"（演奏中模拟器卡顿 {len(outcome.stalls)} 次）"
+    logger.info(
+        "结果：P%s G%s g%s B%s M%s  COMBO %s  FAST/SLOW %s/%s %s",
+        result.perfect,
+        result.great,
+        result.good,
+        result.bad,
+        result.miss,
+        result.max_combo,
+        fast,
+        slow,
+        tag,
+    )
+    return result
+
+
 @dataclass
 class RunStats:
     plays: int = 0
@@ -375,13 +454,7 @@ class Runner:
         self.tracker.status(kind, detail, **extra)
 
     def _chart_offset(self, chart: Chart) -> float:
-        at = self.cfg.autotune
-        if not (at.enabled and at.per_chart):
-            return 0.0
-        value = self.store.chart_offset_ms(chart.music_id, chart.difficulty, self.cfg.game.note_speed)
-        if value:
-            logger.debug("%s %s 的谱面 offset %+.1fms", chart.title or chart.music_id, chart.difficulty.upper(), value)
-        return value
+        return chart_offset_ms(self.cfg, self.store, chart)
 
     def _play(self, chart: Chart) -> PlayOutcome | None:
         """演奏一局，返回 None 表示放弃（歌还在放，之后照常等结算）。
@@ -418,70 +491,7 @@ class Runner:
                 return None
 
     def _record(self, outcome: PlayOutcome, rc: ResultCounts) -> PlayResult:
-        judgements = ("perfect", "great", "good", "bad")
-        if self.cfg.play.touch.great_ratio > 0:
-            judgements = ("perfect", "good", "bad")  # 故意打的 GREAT 偏离 60ms 以上，不拿来修正 offset
-        fast, slow = timing_counts(rc, judgements)
-        total = sum(v for v in rc.counts.values() if v is not None)
-        missed = sum(rc.counts.get(j) or 0 for j in ("good", "bad", "miss"))
-        combo = rc.combo
-        complete = len(rc.counts) == 5 and None not in rc.counts.values()
-        if complete and total and not missed and combo != total:
-            # 全连时最大连击就是总数（结算页的连击数偶尔少读开头细长的 1）
-            combo = total
-        elif complete and combo is not None and not -(-(total - missed) // (missed + 1)) <= combo <= total:
-            # 断了 missed 次，最长的一段至少有平均长度
-            logger.warning("最大连击读数 %d 与判定数矛盾，不记录", combo)
-            combo = None
-        result = PlayResult(
-            music_id=outcome.chart.music_id,
-            difficulty=outcome.chart.difficulty,
-            perfect=rc.counts.get("perfect"),
-            great=rc.counts.get("great"),
-            good=rc.counts.get("good"),
-            bad=rc.counts.get("bad"),
-            miss=rc.counts.get("miss"),
-            fast=fast,
-            slow=slow,
-            max_combo=combo,
-            score=rc.score,
-            offset_ms=outcome.offset_ms,
-            sync_error_ms=outcome.sync.rms_ms,
-            max_late_ms=outcome.stats.max_late_ms,
-            stalls=[[round(a), round(b)] for a, b in outcome.stalls] or None,
-        )
-        # 执行经常迟到或被中断时，FAST/SLOW 不代表 offset 偏差，只记录不修正（偶发一两次迟到不影响）；
-        # 大量 MISS 多半是同步到了错误的音符（整体错开），FAST/SLOW 同样没有意义
-        st = outcome.stats
-        late = st.late_count(4.0)
-        if st.aborted or late > max(3, 0.01 * len(st.lateness_ms)):
-            why = f"本局执行不稳定（{late} 批迟到超过 4ms）"
-        elif total and missed > 0.1 * total:
-            why = f"GOOD/BAD/MISS 共 {missed} 个（总 {total}），可能同步到了错误的音符"
-        else:
-            why = None
-        if why is None:
-            label = f"{outcome.chart.title or outcome.chart.music_id} {outcome.chart.difficulty.upper()}"
-            self.store.autotune(result, self.cfg.autotune, self.cfg.game.note_speed, label)
-        else:
-            self.store.append(result)
-            logger.warning("%s，不修正 offset", why)
-        tag = "AP" if result.all_perfect else "FC" if result.full_combo else ""
-        if outcome.stalls:
-            tag += f"（演奏中模拟器卡顿 {len(outcome.stalls)} 次）"
-        logger.info(
-            "结果：P%s G%s g%s B%s M%s  COMBO %s  FAST/SLOW %s/%s %s",
-            result.perfect,
-            result.great,
-            result.good,
-            result.bad,
-            result.miss,
-            result.max_combo,
-            fast,
-            slow,
-            tag,
-        )
-        return result
+        return record_result(self.cfg, self.store, outcome, rc)
 
     def _advance(self, first: bool) -> bool:
         """换到下一局的曲目；换歌失败只记录（下一局的 ensure_band_confirm 会从任意画面恢复，只是这次没换成歌）。"""

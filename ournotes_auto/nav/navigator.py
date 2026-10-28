@@ -220,6 +220,7 @@ BTN_SKIP_LIVE_CONFIRM = (781, 657)
 BTN_SKIP_RESULT_OK = (1126, 659)
 # 结算页出现约 1s 后可能叠上来的弹窗（首次达成奖励、评级提升及其奖励等），读数前先关掉
 RESULT_POPUPS = (Screen.ACHIEVEMENT, Screen.POPUP, Screen.GRADE_UP, Screen.REWARD, Screen.OK_POPUP)
+PASSIVE_POPUP_S = 30.0  # 跟打读结算时最多等玩家关掉结算页上的弹窗这么久
 # 已经进入游戏、可以开始任务的画面（启动游戏时等到这些之一）
 IN_GAME_SCREENS = frozenset((Screen.HOME, Screen.LIVE_TOP, Screen.SONG_SELECT, Screen.BAND_CONFIRM, *CHALLENGE_SCREENS))
 # 乐曲选择、乐队确认页（自由演出和挑战演出的）
@@ -328,6 +329,8 @@ class GameNavigator(SongSelectMixin, DailyMixin, StoryMixin, ChallengeMixin, Acc
         self._stuck_since: float | None = None  # 从什么时候起一直认不出画面（不论在不在动）
         self._story_menu_at = -PLAYER_MENU_GAP_S  # 上次点故事播放画面右上角菜单的时刻
         self._pause_template = load_template()  # 认演奏画面右上角的暂停按钮（重试前确认还在演奏）
+        # 跟打（玩家自己操作，只帮忙打歌）：读结算时不关弹窗、不翻页，等玩家自己点；只在结算页上点 ⇄ 读 FAST/SLOW
+        self.passive = False
 
     # ------------------------------------------------------------ 基础操作
 
@@ -996,7 +999,7 @@ class GameNavigator(SongSelectMixin, DailyMixin, StoryMixin, ChallengeMixin, Acc
             self._sleep(0.3)
             screen, items = self.look()
             if screen is Screen.LIVE_OPTIONS:
-                self._check_speed(items)
+                self.check_speed(items)
                 self.tap(self._button(items, "演出", BTN_OPTIONS_START), "演出")
                 self._lb_started()
                 return
@@ -1034,6 +1037,12 @@ class GameNavigator(SongSelectMixin, DailyMixin, StoryMixin, ChallengeMixin, Acc
 
     def _in_play(self, frame) -> bool:
         return self._pause_template is not None and pause_visible(frame, self._pause_template)
+
+    def poll_play(self) -> bool:
+        """只截图看右上角的暂停按钮（不做 OCR，几毫秒），是演奏画面时返回 True。"""
+        frame, _ = self.source.grab()
+        self._frame = frame
+        return self._in_play(frame)
 
     def _wait_play(self, timeout_s: float = 2.5, polls: int = 60) -> bool:
         """不做 OCR、只认暂停按钮，快速等演奏画面出现（确认重试后约 0.36s，歌曲已经开始了）。"""
@@ -1082,7 +1091,7 @@ class GameNavigator(SongSelectMixin, DailyMixin, StoryMixin, ChallengeMixin, Acc
                     if self._wait_play():
                         return  # 演奏画面回来了，歌曲已经开始
             elif screen is Screen.LIVE_OPTIONS:  # 重试后如果又弹出演出前选项设置，和开始时一样点「演出」
-                self._check_speed(items)
+                self.check_speed(items)
                 self.tap(self._button(items, "演出", BTN_OPTIONS_START), "演出")
                 return
             elif screen is Screen.UNKNOWN:
@@ -1416,7 +1425,7 @@ class GameNavigator(SongSelectMixin, DailyMixin, StoryMixin, ChallengeMixin, Acc
                 return items
         raise self._fail(f"{timeout_s:.0f}s 内没有回到{target}")
 
-    def _check_speed(self, items: list[OcrItem]) -> None:
+    def check_speed(self, items: list[OcrItem]) -> None:
         speed = note_speed(items)
         want = self.cfg.game.note_speed
         if speed is None:
@@ -1440,7 +1449,11 @@ class GameNavigator(SongSelectMixin, DailyMixin, StoryMixin, ChallengeMixin, Acc
                 return self._read_result_page(items, expected_total)
             if screen in RELOGIN_SCREENS:
                 raise self._fail("游戏回到了标题画面，本局没有结算")
-            if screen in (Screen.LIVE_END, *RESULT_POPUPS, Screen.PAUSE, Screen.ABORT_CONFIRM, Screen.RETRY_CONFIRM):
+            if self.passive and screen in (Screen.PAUSE, Screen.ABORT_CONFIRM, Screen.RETRY_CONFIRM):
+                raise NavigationError(f"演奏结束前打开了暂停菜单（{screen}），不读这一局的结算")
+            if self.passive and screen in (Screen.LIVE_END, *RESULT_POPUPS):
+                self._sleep(0.5)  # 等玩家自己点
+            elif screen in (Screen.LIVE_END, *RESULT_POPUPS, Screen.PAUSE, Screen.ABORT_CONFIRM, Screen.RETRY_CONFIRM):
                 self._common_step(screen, items)
                 self._sleep(self.settle_s)
             elif screen in (
@@ -1468,7 +1481,21 @@ class GameNavigator(SongSelectMixin, DailyMixin, StoryMixin, ChallengeMixin, Acc
         return None
 
     def _result_items(self) -> list[OcrItem]:
-        """重新识别结算页。首次达成连击/评级奖励、最高分评级提升等会在结算页出现约 1s 后弹窗，先关掉。"""
+        """重新识别结算页。首次达成连击/评级奖励、最高分评级提升等会在结算页出现约 1s 后弹窗，先关掉。
+
+        跟打（``passive``）时不关弹窗，等玩家自己关（最多 PASSIVE_POPUP_S）；玩家已经离开结算页时抛 NavigationError。
+        """
+        if self.passive:
+            deadline = time.monotonic() + PASSIVE_POPUP_S
+            while True:
+                screen, items = self.look()
+                if screen is Screen.RESULT:
+                    return items
+                if screen not in RESULT_POPUPS:
+                    raise NavigationError(f"读完结算之前离开了结算页（{screen}）")
+                if time.monotonic() > deadline:
+                    raise NavigationError("结算页上的弹窗一直没关，不再等")
+                self._sleep(0.5)
         for _ in range(5):
             screen, items = self.look()
             if screen not in RESULT_POPUPS:
@@ -1511,22 +1538,32 @@ class GameNavigator(SongSelectMixin, DailyMixin, StoryMixin, ChallengeMixin, Acc
         # 数字动画结束前点 ⇄ 无效，所以先读总数再切换；切换后以表头 FAST 判断是否生效，避免连点又切回去
         fast: dict[str, int] = {}
         slow: dict[str, int] = {}
-        for _ in range(4):
-            self.tap(BTN_TOGGLE_TIMING, "⇄")
-            self._sleep(1.2)
-            items = self._result_items()
-            if find(items, "FAST") is None:
-                continue
-            got = self._stable_read(lambda its: self._read_cells(its, timing=True), items, tries=5)
-            if got is not None:
-                fast = {j: v[0] for j, v in got.items()}
-                slow = {j: v[1] for j, v in got.items()}
-            break
-        else:
-            logger.warning("未能切换到 FAST/SLOW 显示")
+        try:
+            for _ in range(4):
+                if self.passive:
+                    self._result_items()  # 点之前再确认一次还在结算页（玩家可能已经点了下一步）
+                self.tap(BTN_TOGGLE_TIMING, "⇄")
+                self._sleep(1.2)
+                items = self._result_items()
+                if find(items, "FAST") is None:
+                    continue
+                got = self._stable_read(lambda its: self._read_cells(its, timing=True), items, tries=5)
+                if got is not None:
+                    fast = {j: v[0] for j, v in got.items()}
+                    slow = {j: v[1] for j, v in got.items()}
+                break
+            else:
+                logger.warning("未能切换到 FAST/SLOW 显示")
+            frame = self._frame
+        except NavigationError as e:
+            # 跟打时玩家可能读完总数就点了下一步：判定数照样记录，只是没有 FAST/SLOW
+            if not self.passive or self.stop.is_set():
+                raise
+            logger.warning("没读到 FAST/SLOW：%s", e)
+            fast, slow, frame = {}, {}, totals_frame
         # 分数、连击只做记录。切换后再读（两种显示都有），这时数字动画肯定结束了
-        score = parse_int(self.ocr.read_text(self._frame, RESULT_SCORE_ROI))
-        combo = parse_int(self.ocr.read_text(self._frame, RESULT_COMBO_ROI))
+        score = parse_int(self.ocr.read_text(frame, RESULT_SCORE_ROI))
+        combo = parse_int(self.ocr.read_text(frame, RESULT_COMBO_ROI))
         if combo is None:
             combo = page_combo
         counts = ResultCounts({j: v[0] for j, v in totals.items()}, {}, {}, score, combo)

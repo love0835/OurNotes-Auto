@@ -23,6 +23,7 @@ TASKS = {
     "idle": "挂机",
     "ap": "AP补完",
     "challenge": "挑战演出",
+    "assist": "跟打",
     "records": "打开统计窗口",
     "notify_test": "推送测试",
 }
@@ -382,6 +383,9 @@ def worker_args(task: str, attach: Mapping[str, Any], device: Mapping[str, str])
     elif task == "daily":
         sets = {**device, "device.touch": _choice(attach, "touch", TOUCH_MODES)}
         tail = ["daily", "--jobs", _daily_jobs(attach)]
+    elif task == "assist":
+        sets = {**device, "device.touch": _choice(attach, "touch", TOUCH_MODES), **_humanize(attach)}
+        tail = ["assist", *(["--watch-combo"] if _bool(attach, "watch_combo") else [])]
     else:
         sets = {**device, **run_settings(task, attach)}
         tail = ["run", *(["--watch-combo"] if _bool(attach, "watch_combo") else [])]

@@ -137,6 +137,17 @@
             }
         }
     },
+    "OurNotes_Assist": {
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "OurNotesRun",
+                "custom_action_param": {
+                    "task": "assist"
+                }
+            }
+        }
+    },
     "OurNotes_Records": {
         "action": {
             "type": "Custom",

@@ -132,6 +132,7 @@ UI_KEY = "stats-ui"  # sessionStorage 里存界面状态（页签、筛选、搜
 # 不在表里的 kind 当成一件普通的事，只显示说明。
 LIVE_KINDS = {
     "select": ("换歌", "u-search"),
+    "assist": ("等你开始", "u-clock"),
     "play": ("演奏中", "u-music"),
     "lb": ("等 LB 恢复", "u-clock"),
     "maintenance": ("等开服", "u-lock"),

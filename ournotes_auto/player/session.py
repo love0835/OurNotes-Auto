@@ -19,7 +19,7 @@ from ..geometry import Geometry
 from ..planner import Plan, Planner
 from .clock import now, raised_thread_priority
 from .executor import ExecStats, Executor
-from .guard import TEMPLATE_PATH, LifeDepleted, PlayGuard, PlayInterrupted, load_template
+from .guard import TEMPLATE_PATH, LifeDepleted, PlayGuard, PlayInterrupted, load_template, pause_visible
 from .monitor import ComboWatcher, find_breaks, report_breaks, save_samples
 from .sync import NoteTracker, SyncResult, SyncTimeout
 
@@ -148,15 +148,25 @@ class PlaySession:
         stop: threading.Event | None = None,
         require_sync_ok: bool = True,
         retry: bool = False,
+        confirm_screen: bool = False,
     ) -> PlayOutcome:
         """需在进入演奏画面、首音符出现之前调用（通常在点击开始后立即调用）。
 
-        ``retry``：刚在暂停菜单点了重试（歌曲立即从头开始，沿用上一次的跟踪区基线，见 player/sync.py）。"""
+        ``retry``：刚在暂停菜单点了重试（歌曲立即从头开始，沿用上一次的跟踪区基线，见 player/sync.py）。
+        ``confirm_screen``：同步完成后先确认画面上有演奏画面的暂停按钮，没有就不发触控、抛 :class:`PlayInterrupted`
+        （跟打时开始演奏的时机是猜的，可能同步到了别的画面上的变化）。"""
         # 同步和演奏用最高优先级，打完恢复：导航、文字识别用不着，一直占着会抢别的程序的 CPU
         with raised_thread_priority():
-            return self._play(chart, stop, require_sync_ok, retry)
+            return self._play(chart, stop, require_sync_ok, retry, confirm_screen)
 
-    def _play(self, chart: Chart, stop: threading.Event | None, require_sync_ok: bool, retry: bool) -> PlayOutcome:
+    def _play(
+        self,
+        chart: Chart,
+        stop: threading.Event | None,
+        require_sync_ok: bool,
+        retry: bool,
+        confirm_screen: bool = False,
+    ) -> PlayOutcome:
         plan, tracker = self.prepare(chart, retry)
         self.last_fps = None
         try:
@@ -173,6 +183,8 @@ class PlaySession:
             if self.cfg.play.sync.record_frames:
                 self._dump(tracker, chart, sync)
             raise SyncFailed("首音符同步失败：" + "；".join(sync.notes), sync)
+        if confirm_screen and not self._on_play_screen():
+            raise PlayInterrupted("同步完成时不在演奏画面上（看不到右上角的暂停按钮），没有演奏")
         offset = self.offset_ms
         lead_ms = (sync.t0 + (plan.first_ms + offset) / 1000 - now()) * 1000
         if lead_ms < 0:
@@ -237,6 +249,13 @@ class PlaySession:
         if watcher is not None:
             self._report_combo(chart, samples, sync.t0, offset)
         return PlayOutcome(chart, plan, sync, stats, offset, stalls)
+
+    def _on_play_screen(self) -> bool:
+        template = self.guard_template if self.guard_template is not None else load_template()
+        if template is None:
+            return True  # 认不出就不拦
+        frame, _ = self.source.grab()
+        return pause_visible(frame, template)
 
     def _report_combo(self, chart: Chart, samples, t0: float, offset_ms: float) -> None:
         breaks = find_breaks(samples, self.combo_reader)

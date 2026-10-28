@@ -99,6 +99,8 @@
     "task.AP.desc": "Plays the songs in the selected difficulties that aren't ALL PERFECT yet until they are AP: switches the Select Song screen to the \"All\" category, filters each difficulty by \"NO ALL PERFECT\" and picks songs at random. A song that still isn't AP after enough attempts is skipped; locked songs are re-picked. Restores the filter and category after finishing normally.",
     "task.Challenge": "Challenge LIVE",
     "task.Challenge.desc": "Enters \"CHALLENGE LIVE\" from the LIVE top page (only open during some events; ends with an error otherwise) and plays continuously, spending Challenge Pts (CP) each round until CP isn't enough for another round. Before the first round, selects the per-round cost in the CP settings (default 200, the cheapest, allowing the most rounds). Doesn't use LB and never taps \"SKIP\" on the Formation screen.",
+    "task.Assist": "Assist Play",
+    "task.Assist.desc": "Only plays the notes for you: pick the song and tap LIVE START yourself, and it plays automatically once the play screen appears. It taps nothing for song selection, starting, result pages or popups, except tapping ⇄ once on the result page to read FAST/SLOW (for records and offset correction). The song is recognized on the Formation screen, so go through it; works in Free LIVE and Challenge LIVE. If you pause and tap Retry during play, it plays that song again; if sync fails, that round is skipped and you can pause and retry yourself. Runs until stopped manually and never restarts the game.",
     "opt.ChallengeSongMode": "Song Selection",
     "opt.ChallengeSongMode.rotate": "Rotate Through Songs",
     "opt.ChallengeSongMode.rotate.desc": "After each round, selects the next song in the list, going back to the first after the last",

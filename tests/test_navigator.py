@@ -164,6 +164,59 @@ def test_read_result_and_leave():
     assert game.state == "song_select"
 
 
+def test_read_result_passive():
+    """跟打：LIVE CLEAR、结算页上的弹窗都等玩家自己点，只在结算页上点 ⇄ 读 FAST/SLOW。"""
+
+    class PlayerGame(FakeGame):
+        grabs = 0
+
+        def grab(self):
+            self.grabs += 1
+            if self.grabs == 3:
+                self.state = "achievement"  # 玩家点掉了 LIVE CLEAR
+            elif self.grabs == 5:
+                self.state = "result"  # 又点掉了达成奖励列表
+            return super().grab()
+
+    game = PlayerGame("live_clear")
+    nav = make_nav(game, game, game)
+    nav.passive = True
+    rc = nav.read_result()
+    assert rc.counts == TOTALS and rc.fast == {j: v[0] for j, v in TIMING.items()} and rc.combo == 342
+    assert [s for s, _ in game.taps] == ["result"] and game.state == "result_timing"
+
+
+def test_read_result_passive_player_leaves():
+    """跟打：读完判定数、点 ⇄ 之前玩家就点了下一步：判定数照样返回（没有 FAST/SLOW），不在别的页面上点。"""
+
+    class LeavingGame(FakeGame):
+        grabs = 0
+
+        def grab(self):
+            if self.state == "result":
+                self.grabs += 1
+                if self.grabs == 3:
+                    self.state = "result_reward"
+            return super().grab()
+
+    game = LeavingGame("result")
+    nav = make_nav(game, game, game)
+    nav.passive = True
+    rc = nav.read_result()
+    assert rc.counts == TOTALS and rc.fast == {} and rc.score == 1234567
+    assert game.taps == []
+
+
+def test_read_result_passive_paused():
+    """跟打：等结算时看到暂停菜单（玩家在演奏中暂停了）：不点，这一局不读。"""
+    game = FakeGame("pause")
+    nav = make_nav(game, game, game)
+    nav.passive = True
+    with pytest.raises(NavigationError, match="暂停"):
+        nav.read_result()
+    assert game.taps == []
+
+
 def test_bond_up_after_result():
     """结算奖励页之后弹出羁绊等级的 RANK UP、羁绊故事解锁：点 OK、关闭继续，不当成玩家升级（LB 不回满）。"""
     game = FakeGame("bond_up")

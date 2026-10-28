@@ -50,6 +50,9 @@ ournotes-auto run --challenge --mode rotate              # 挑戰演出（活動
 ournotes-auto run --challenge --challenge-cost 1600 -n 3 # 挑戰演出，每局 1600 CP（報酬 ×8），打 3 局
 ournotes-auto run --challenge --mode ap_first           # 挑戰演出：先打 EXPERT 還沒 AP 的歌，都 AP 了再輪流打
 
+# 跟打：自己選歌、點開始，演奏時自動打歌（不導航、不啟動/重啟遊戲，只在結算頁點 ⇄ 讀 FAST/SLOW），一直執行到停止
+ournotes-auto assist
+
 # 啟動遊戲並進入主畫面；領取日常報酬（預設除看故事、活動故事外七項全領，--jobs 只做其中幾項）
 ournotes-auto start
 ournotes-auto switch-account user_123   # 登出目前帳號，從登入紀錄裡選帳號名稱包含 user_123 的帳號登入，然後進入主畫面

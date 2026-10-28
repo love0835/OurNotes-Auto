@@ -99,6 +99,8 @@
     "task.AP.desc": "把所選難度裡還沒 ALL PERFECT 的歌打到 AP：選曲頁切到「全部」分類，依難度篩選「未ALL PERFECT」後隨機抽歌。一首歌打滿次數還沒 AP 就跳過；未解鎖的歌會重抽。正常結束後把篩選和分類改回原樣。",
     "task.Challenge": "挑戰演出",
     "task.Challenge.desc": "從「演出TOP」進「挑戰演出」（只在部分活動期間開放，沒開放時報錯結束）連續演奏，每局消耗挑戰pt（CP），打到 CP 不夠一局為止。第一局前在「CP 設定」裡選好每局消耗（預設 200，最省、能多打幾輪）。不消耗 LB，不點樂團確認頁的「跳過」。",
+    "task.Assist": "跟打",
+    "task.Assist.desc": "只幫你打歌：自己選歌、點 LIVE START 開始演出，進入演奏畫面後自動打歌。選歌、開始、結算頁翻頁、彈窗都不點，只在結算頁上點一下 ⇄ 讀 FAST/SLOW（記錄成績、修正 offset 用）。曲目在樂團確認頁辨識，所以要經過樂團確認頁；自由演出和挑戰演出都可以。演奏中暫停後點重試會接著打這一首；同步沒跟上時這一局就不打了，可以自己暫停重試。一直執行到手動停止，不會重啟遊戲。",
     "opt.ChallengeSongMode": "選曲方式",
     "opt.ChallengeSongMode.rotate": "輪流打每首歌",
     "opt.ChallengeSongMode.rotate.desc": "每局結束後選列表裡的下一首，到底了就回到第一首",
