@@ -3,12 +3,15 @@
 不做任何界面操作（选歌、LIVE START、演出前选项、结算页翻页、弹窗都由玩家自己点），只截图看画面；
 唯一的点击是在结算页上点 ⇄ 切换到 FAST/SLOW，读完判定数用来记录和修正 offset。
 
-乐队确认页（认出曲目、下载好谱面）→ 玩家点 LIVE START（→ 演出前选项设置 → 玩家点「演出」）→ 加载 → 演奏画面
-出现时（右上角的暂停按钮）开始等首音符并演奏 → 等玩家点过 LIVE CLEAR，在结算页读成绩。
+乐队确认页（认出曲目、下载好谱面）→ 玩家点 LIVE START（→ 演出前选项设置 → 玩家点「演出」）→ 加载画面出现时
+就开始等首音符并演奏 → 等玩家点过 LIVE CLEAR，在结算页读成绩。
 
-开始演奏的时机只能看画面猜：离开乐队确认页后画面认不出时，快速看暂停按钮等演奏画面出现；头几秒里隔一阵用
-OCR 看一眼，回到了乐曲选择页等认得出的画面就不等了。演奏中暂停、在确认弹窗里点了重试时，歌曲立即从头开始，
-用这首的谱面接着打（点「继续」时打不了，接不上中途）。
+开始看画面的时机只能猜：离开乐队确认页后画面认不出 LOADING_S 秒就当作在加载，和 ``run`` 一样穿过加载画面开始
+同步——基线在加载时（画面静止）就取好，演奏画面一出来就能量到第一个音符。不等认出右上角的暂停按钮才开始：
+按钮是淡入的，认出来时歌往往已经开始、第一个音符已经落下，跟踪区再也等不到静止（实测每局都卡在这里）。
+认不出的头 LOOK_GAP_S 秒用 OCR 看一眼，回到了乐曲选择页等认得出的画面就不等了（弹窗淡入时的短暂认不出也靠它）。
+同步完成后先确认真的在演奏画面（``confirm_screen``）才发触控。演奏中暂停、在确认弹窗里点了重试时，歌曲立即
+从头开始，用这首的谱面接着打（点「继续」时打不了，接不上中途）。
 """
 
 from __future__ import annotations
@@ -49,9 +52,8 @@ BAND_DIALOGS = (
 )
 POLL_S = 0.3  # 平时隔这么久看一次画面
 PLAY_POLL_S = 0.03  # 等演奏画面时隔这么久看一次暂停按钮（不做 OCR，很快）
-LOOK_GAP_S = 0.8  # 等演奏画面的头 LOOK_WINDOW_S 秒里隔这么久用 OCR 看一眼是不是回到了别的画面
-LOOK_WINDOW_S = 5.0  # 之后只看暂停按钮（OCR 要一两百毫秒，做 OCR 的时候发现不了演奏画面）
-PLAY_WAIT_S = 60.0  # 离开乐队确认页后最多等演奏画面这么久（加载一般 10s 左右）
+LOOK_GAP_S = 0.8  # 离开乐队确认页后隔这么久用 OCR 看一眼是不是回到了别的画面（弹窗淡入、玩家反悔）
+LOADING_S = 1.5  # 画面认不出这么久就当作在加载，开始同步（加载一般 7~10s，弹窗淡入不到 1s）
 
 
 class Assist:
@@ -180,19 +182,18 @@ class Assist:
         return found[0]
 
     def _await_play(self) -> tuple[Screen, list] | None:
-        """等演奏画面出现（暂停按钮），出现了返回 None；回到了认得出的别的画面时返回 (画面, 识别结果)，
-        等太久、按了停止时返回 (UNKNOWN, [])。"""
+        """等到该开始同步：看到了演奏画面的暂停按钮，或者画面认不出 ``LOADING_S`` 秒（在加载了），
+        两者都返回 None。回到了认得出的别的画面时返回 (画面, 识别结果)，按了停止时返回 (UNKNOWN, [])。"""
         start = self.clock()
         next_look = start + LOOK_GAP_S
         while not self.stop.is_set():
             if self.nav.poll_play():
                 return None
             t = self.clock()
-            if t - start > PLAY_WAIT_S:
-                logger.warning("离开乐队确认页 %.0fs 都没有进入演奏画面，这一首不打了", PLAY_WAIT_S)
-                self._armed, self._on_band = None, False  # 回到乐队确认页时重新认
-                break
-            if t - start < LOOK_WINDOW_S and t >= next_look:
+            if t - start > LOADING_S:
+                logger.debug("画面认不出 %.1fs，当作在加载，开始同步", t - start)
+                return None
+            if t >= next_look:
                 screen, items = self.nav.look(still_ok=True, blocking_ok=True)
                 if screen is not Screen.UNKNOWN:
                     return screen, items

@@ -232,17 +232,16 @@ def test_result_missed_is_not_fatal(tmp_path):
     assert store.history() == []
 
 
-def test_wait_play_timeout(tmp_path):
-    """离开乐队确认页后一直没进演奏画面（认不出的别的页面）：过一阵不再等，之后也不打。"""
-    script = [S.BAND_CONFIRM] + [S.UNKNOWN] * 1000 + [PLAY]
-    assist, _, _ = make(tmp_path, script)
+def test_syncs_through_loading(tmp_path):
+    """离开乐队确认页后画面认不出（在加载）：不等暂停按钮认出来，过 LOADING_S 就开始同步。
+
+    暂停按钮是淡入的，等认出来时歌往往已经开始、第一个音符已经落下，跟踪区再也等不到静止。
+    """
+    script = [S.BAND_CONFIRM] + [S.UNKNOWN] * 50
+    assist, nav, _ = make(tmp_path, script)
     assist.run()
-    assert assist.session.plays == []
-    # 等超时后回到同一个乐队确认页：重新认曲目，照常能打
-    script = [S.BAND_CONFIRM] + [S.UNKNOWN] * 1000 + [S.BAND_CONFIRM, S.UNKNOWN, PLAY]
-    assist, nav, _ = make(tmp_path / "again", script)
-    assist.run()
-    assert len(assist.session.plays) == 1 and nav.calls.count("identify") == 2
+    assert assist.session.plays == [("100008_expert", False, True)]  # 仍然先确认在演奏画面再发触控
+    assert nav.calls == ["identify", "result"]
 
 
 @pytest.mark.parametrize(
