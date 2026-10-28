@@ -13,6 +13,8 @@
 
 </div>
 
+> **这是修改版，不是官方版本。** 由 love0835 从 [ChissaQAQ/OurNotes-Auto](https://github.com/ChissaQAQ/OurNotes-Auto) 修改而来，加了「跟打」任务（自己选歌、点开始，它只负责打歌；支持自由演出、挑战演出和协力演出）。原作者不为这个版本负责，有问题请在[本仓库](https://github.com/love0835/OurNotes-Auto/issues)反馈，不要去打扰原作者。
+
 《BanG Dream! Our Notes》（国际服 `com.bilibili.sirius.official`（Google Play 版 `com.bilibili.sirius`）、日服 `com.bushiroad.sirius`）自动演奏工具。MuMu 模拟器 + Python + [MaaFramework](https://github.com/MaaXYZ/MaaFramework)。
 
 - 从谱面站下载谱面，按判定时刻发送触控，目标是 FULL COMBO / ALL PERFECT

@@ -2,6 +2,8 @@
 
 This software is developed by ChissaQAQ and is free and open source under AGPL-3.0. Source code: https://github.com/ChissaQAQ/OurNotes-Auto
 
+**This build was modified by love0835 and is not the official release from the original author** (it adds the Assist Play task). Source of this fork: https://github.com/love0835/OurNotes-Auto
+
 If you paid for it, it was resold to you: you can ask for a refund and report the seller. Using this software means you agree to the Terms of Service (`TERMS_OF_SERVICE.md` in the release package, Chinese only).
 
 **Using automation tools very likely violates the game's terms of service and may get your account warned, restricted or banned. You bear all consequences yourself.**

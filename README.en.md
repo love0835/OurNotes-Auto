@@ -13,6 +13,8 @@
 
 </div>
 
+> **This is a modified version, not the official one.** Modified by love0835 from [ChissaQAQ/OurNotes-Auto](https://github.com/ChissaQAQ/OurNotes-Auto), adding the Assist Play task (you pick the song and start it, the tool only plays the notes; works in Free LIVE, Challenge LIVE and Co-op LIVE). The original author is not responsible for this version — please report issues in [this repository](https://github.com/love0835/OurNotes-Auto/issues), not to the original author.
+
 An auto-play tool for *BanG Dream! Our Notes* (International server `com.bilibili.sirius.official` (Google Play version `com.bilibili.sirius`), Japanese server `com.bushiroad.sirius`). MuMu Emulator + Python + [MaaFramework](https://github.com/MaaXYZ/MaaFramework).
 
 - Downloads charts from a chart site and sends touches at the judgment times, aiming for FULL COMBO / ALL PERFECT

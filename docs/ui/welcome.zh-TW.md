@@ -2,6 +2,8 @@
 
 本軟體由 ChissaQAQ 開發，依 AGPL-3.0 免費開源，原始碼：https://github.com/ChissaQAQ/OurNotes-Auto
 
+**本版本由 love0835 修改，不是原作者發布的官方版本**（加了「跟打」任務）。修改版原始碼：https://github.com/love0835/OurNotes-Auto
+
 如果你是花錢買到的，表示被轉賣了，可以要求退款並檢舉賣家。使用本軟體即表示同意《使用者協議》（發布包裡的 `TERMS_OF_SERVICE.md`）。
 
 **使用自動化工具很可能違反遊戲的服務條款，可能導致帳號遭到警告、限制或停權。後果由使用者自行承擔。**

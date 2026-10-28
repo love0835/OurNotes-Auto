@@ -13,6 +13,8 @@
 
 </div>
 
+> **これは改変版であり、公式版ではありません。** love0835 が [ChissaQAQ/OurNotes-Auto](https://github.com/ChissaQAQ/OurNotes-Auto) を改変し、「演奏アシスト」タスク（曲選択と開始は自分で押し、演奏だけを行います。フリーライブ・チャレンジライブ・協力ライブに対応）を追加したものです。原作者はこの版について責任を負いません。不具合は[このリポジトリ](https://github.com/love0835/OurNotes-Auto/issues)へ報告し、原作者に問い合わせないでください。
+
 『BanG Dream! Our Notes』（国際版 `com.bilibili.sirius.official`（Google Play 版は `com.bilibili.sirius`）、日本版 `com.bushiroad.sirius`）の自動演奏ツールです。MuMu エミュレーター + Python + [MaaFramework](https://github.com/MaaXYZ/MaaFramework)。
 
 - 譜面サイトから譜面をダウンロードし、判定タイミングに合わせてタッチを送ります。目標は FULL COMBO / ALL PERFECT

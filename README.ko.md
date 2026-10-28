@@ -13,6 +13,8 @@
 
 </div>
 
+> **이것은 수정판이며 공식 버전이 아닙니다.** love0835가 [ChissaQAQ/OurNotes-Auto](https://github.com/ChissaQAQ/OurNotes-Auto)를 수정해 「연주 어시스트」 작업(곡 선택과 시작은 직접 누르고 연주만 대신합니다. 프리 라이브, 챌린지 라이브, 멀티 라이브 지원)을 추가한 것입니다. 원작자는 이 버전에 책임이 없으니 문제는 [이 저장소](https://github.com/love0835/OurNotes-Auto/issues)에 알려 주시고 원작자에게 문의하지 마세요.
+
 《BanG Dream! Our Notes》(국제 서버 `com.bilibili.sirius.official`(Google Play 버전 `com.bilibili.sirius`), 일본 서버 `com.bushiroad.sirius`) 자동 연주 도구입니다. MuMu 에뮬레이터 + Python + [MaaFramework](https://github.com/MaaXYZ/MaaFramework).
 
 - 채보 사이트에서 채보를 다운로드하고, 판정 시각에 맞춰 터치를 보내 FULL COMBO / ALL PERFECT를 노립니다
