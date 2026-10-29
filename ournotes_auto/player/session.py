@@ -32,6 +32,17 @@ class SyncFailed(RuntimeError):
         self.sync = sync
 
 
+def _start_delay_s(sp, retry: bool, multi: bool) -> float | None:
+    """推算的歌曲开始时刻最多比开始同步晚多久（None 为按配置）。
+
+    暂停重试后歌曲立即从头开始，这个上限更严；协力演出相反：点了「准备完成」就开始同步，
+    之后要等另外 4 个玩家，这段等待也算在里面，所以放宽 ``multi_wait_s``。
+    """
+    if retry:
+        return sp.retry_start_delay_s
+    return sp.max_start_delay_s + sp.multi_wait_s if multi else None
+
+
 @dataclass
 class PlayOutcome:
     chart: Chart
@@ -114,7 +125,7 @@ class PlaySession:
     def offset_ms(self) -> float:
         return self.cfg.play.offset_ms + self.learned_offset_ms
 
-    def prepare(self, chart: Chart, retry: bool = False) -> tuple[Plan, NoteTracker]:
+    def prepare(self, chart: Chart, retry: bool = False, multi: bool = False) -> tuple[Plan, NoteTracker]:
         plan = self.planner.plan(chart)
         if plan.dropped:
             logger.warning("%d 个手势因触点不足被丢弃", len(plan.dropped))
@@ -130,7 +141,8 @@ class PlaySession:
             spans,
             record_frames=sp.record_frames,
             baseline=baseline,
-            max_start_delay_s=sp.retry_start_delay_s if retry else None,
+            max_start_delay_s=_start_delay_s(sp, retry, multi),
+            timeout_s=sp.timeout_s + sp.multi_wait_s if multi else None,
         )
         logger.debug(
             "谱面 %s：%d 个手势 / %d 个触控事件，首音符 %.0fms（%d 个）",
@@ -149,18 +161,18 @@ class PlaySession:
         require_sync_ok: bool = True,
         retry: bool = False,
         confirm_screen: bool = False,
-        guard: bool = True,
+        multi: bool = False,
     ) -> PlayOutcome:
         """需在进入演奏画面、首音符出现之前调用（通常在点击开始后立即调用）。
 
         ``retry``：刚在暂停菜单点了重试（歌曲立即从头开始，沿用上一次的跟踪区基线，见 player/sync.py）。
         ``confirm_screen``：同步完成后先确认画面上有演奏画面的暂停按钮，没有就不发触控、抛 :class:`PlayInterrupted`
         （跟打时开始演奏的时机是猜的，可能同步到了别的画面上的变化）。
-        ``guard``：演奏中看右上角的暂停按钮确认还在演奏画面（见 player/guard.py）。协力演出没有暂停按钮，
-        两项都要关掉，这时只靠同步结果判断打的是不是这一首。"""
+        ``multi``：协力演出。没有暂停按钮，所以演奏中也不看它（见 player/guard.py），只靠同步结果判断打的
+        是不是这一首；点了「准备完成」还要等另外 4 个玩家，同步的两个时限都放宽 ``sync.multi_wait_s``。"""
         # 同步和演奏用最高优先级，打完恢复：导航、文字识别用不着，一直占着会抢别的程序的 CPU
         with raised_thread_priority():
-            return self._play(chart, stop, require_sync_ok, retry, confirm_screen, guard)
+            return self._play(chart, stop, require_sync_ok, retry, confirm_screen, multi)
 
     def _play(
         self,
@@ -169,9 +181,9 @@ class PlaySession:
         require_sync_ok: bool,
         retry: bool,
         confirm_screen: bool = False,
-        guard_screen: bool = True,
+        multi: bool = False,
     ) -> PlayOutcome:
-        plan, tracker = self.prepare(chart, retry)
+        plan, tracker = self.prepare(chart, retry, multi)
         self.last_fps = None
         try:
             sync = tracker.wait(self.source, stop)
@@ -198,7 +210,7 @@ class PlaySession:
         if watcher is not None:
             watcher.start()
         guard = None
-        if guard_screen and self.guard_template is not None:
+        if not multi and self.guard_template is not None:
             pc = self.cfg.play
             guard = PlayGuard(
                 timed,

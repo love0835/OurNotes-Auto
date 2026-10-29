@@ -198,9 +198,10 @@ class NoteTracker:
         record_frames: int = 0,
         baseline: np.ndarray | None = None,
         max_start_delay_s: float | None = None,
+        timeout_s: float | None = None,
     ):
         """``baseline``：上一次（同一谱面）静止时取的基线 ``clean_baseline``，给出时不等静止直接开始跟踪；
-        ``max_start_delay_s``：代替 ``params`` 里的同名参数。"""
+        ``max_start_delay_s``、``timeout_s``：代替 ``params`` 里的同名参数。"""
         self.geo = geometry
         self.spans = list(spans)
         self.p = params
@@ -235,6 +236,7 @@ class NoteTracker:
         self._bar_h = max(2, round(_BAR_MAX_H * h))
         width = mask.shape[1] + (0 if self._probe_x is None else self._probe_x.shape[1])
         self.max_start_delay_s = params.max_start_delay_s if max_start_delay_s is None else max_start_delay_s
+        self.timeout_s = params.timeout_s if timeout_s is None else timeout_s
         if baseline is not None and baseline.shape != (mask.shape[0], width, 3):
             logger.debug("沿用的基线尺寸 %s 与跟踪区 %s 不符，改为等待静止", baseline.shape, mask.shape)
             baseline = None
@@ -502,7 +504,7 @@ class NoteTracker:
     def wait(self, source: FrameSource, stop: threading.Event | None = None) -> SyncResult:
         from .clock import now
 
-        deadline = now() + self.p.timeout_s
+        deadline = now() + self.timeout_s
         while now() < deadline:
             if stop is not None and stop.is_set():
                 raise InterruptedError("同步被中止")
@@ -510,7 +512,7 @@ class NoteTracker:
             result = self.feed(frame, t)
             if result is not None:
                 return result
-        raise SyncTimeout(f"{self.p.timeout_s}s 内未检测到首音符（已处理 {self._frames} 帧）")
+        raise SyncTimeout(f"{self.timeout_s:g}s 内未检测到首音符（已处理 {self._frames} 帧）")
 
 
 def replay_dump(path: str | Path, geometry: Geometry, params: SyncParams) -> SyncResult | None:

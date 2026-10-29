@@ -144,6 +144,22 @@ def test_session_confirm_screen_blocks_touches():
     assert touch.downs == []
 
 
+def test_multi_waits_longer_for_other_players():
+    """协力演出：点了「准备完成」就开始同步，但要等另外 4 个玩家才加载，两个时限都放宽 multi_wait_s。"""
+    chart = Chart(1, "expert", notes=[PointNote(0, 3500, NoteKind.TAP, Span(0, 4))])
+    cfg = Config()
+    cfg.play.guard_lost_s = 0
+    sp = cfg.play.sync
+    session = PlaySession(cfg, SimGame(chart, now() + 0.3), LogTouch())
+    _, solo = session.prepare(chart)
+    _, multi = session.prepare(chart, multi=True)
+    assert (solo.timeout_s, solo.max_start_delay_s) == (sp.timeout_s, sp.max_start_delay_s)
+    assert multi.timeout_s == sp.timeout_s + sp.multi_wait_s
+    assert multi.max_start_delay_s == sp.max_start_delay_s + sp.multi_wait_s
+    # 暂停重试后歌曲立即从头开始，这个上限反而更严（协力不能暂停，不会同时出现）
+    assert session.prepare(chart, retry=True)[1].max_start_delay_s == sp.retry_start_delay_s
+
+
 def test_timed_source_merges_queued_stalls():
     class Stalling:
         size = (4, 3)

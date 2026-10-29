@@ -92,10 +92,10 @@ class FakeSession:
     def __init__(self, fails=0, interrupt=False):
         self.fails, self.interrupt = fails, interrupt
         self.learned_offset_ms = 0.0
-        self.plays = []  # (谱面, retry, confirm_screen, guard)
+        self.plays = []  # (谱面, retry, confirm_screen, multi)
 
-    def play(self, chart, stop=None, retry=False, confirm_screen=False, guard=True):
-        self.plays.append((chart.key, retry, confirm_screen, guard))
+    def play(self, chart, stop=None, retry=False, confirm_screen=False, multi=False):
+        self.plays.append((chart.key, retry, confirm_screen, multi))
         sync = SyncResult(1.0, 0.0, [], -40.0, 0.835, 1.0, 1.0, 190.0, self.fails <= 0)
         self.fails -= 1
         if self.fails >= 0:
@@ -155,7 +155,7 @@ def test_plays_after_player_starts(tmp_path):
     assist, nav, store = make(tmp_path, script)
     stats = assist.run()
     assert nav.calls == ["identify", "speed", "result"]
-    assert assist.session.plays == [("100008_expert", False, True, True)]  # 先确认在演奏画面上再发触控
+    assert assist.session.plays == [("100008_expert", False, True, False)]  # 先确认在演奏画面上再发触控
     assert stats.plays == 1 and stats.full_combo == 1
     assert len(store.history()) == 1 and store.history()[0].fast == 320
 
@@ -185,7 +185,7 @@ def test_multi_live(tmp_path):
     stats = assist.run()
     assert nav.calls == ["identify", "result"]  # 只认一次：难度没变
     # 协力演出没有暂停按钮：同步完不确认画面，演奏中也不看它
-    assert assist.session.plays == [("100008_expert", False, False, False)]
+    assert assist.session.plays == [("100008_expert", False, False, True)]
     assert stats.plays == 1 and len(store.history()) == 1
 
 
@@ -259,7 +259,7 @@ def test_retry_after_sync_failure(tmp_path):
     script = [S.BAND_CONFIRM, S.UNKNOWN, PLAY, S.UNKNOWN, S.PAUSE, S.RETRY_CONFIRM, S.UNKNOWN, PLAY, S.RESULT]
     assist, nav, store = make(tmp_path, script, session=FakeSession(fails=1))
     stats = assist.run()
-    assert assist.session.plays == [("100008_expert", False, True, True), ("100008_expert", True, True, True)]
+    assert assist.session.plays == [("100008_expert", False, True, False), ("100008_expert", True, True, False)]
     assert nav.calls == ["identify", "result"]
     assert stats.plays == 1 and stats.failures == 1 and len(store.history()) == 1
 
@@ -308,7 +308,7 @@ def test_syncs_through_loading(tmp_path):
     script = [S.BAND_CONFIRM] + [S.UNKNOWN] * 50
     assist, nav, _ = make(tmp_path, script)
     assist.run()
-    assert assist.session.plays == [("100008_expert", False, True, True)]  # 仍然先确认在演奏画面再发触控
+    assert assist.session.plays == [("100008_expert", False, True, False)]  # 仍然先确认在演奏画面再发触控
     assert nav.calls == ["identify", "result"]
 
 

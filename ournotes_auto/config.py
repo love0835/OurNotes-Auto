@@ -119,6 +119,9 @@ class SyncParams:
     max_sigma_ms: float = 5.0  # 外推误差估计上限，超过视为同步失败
     max_track_s: float = 8.0  # 首次发现音符后最多跟踪的时长（流速很慢时音符在画面上停留更久）
     timeout_s: float = 40.0
+    # 协力演出：点了「准备完成」就开始同步，但要等另外 4 个玩家也准备好才加载，等多久全看别人。
+    # 这段等待算在同步里，所以 timeout_s 和 max_start_delay_s 都加上这个宽限（只在协力演出时）
+    multi_wait_s: float = 120.0
     # 推算出的歌曲开始时刻最多比开始同步晚这么久（MuMu 实测加载约 9s）；更晚多半是错过了首音符、
     # 跟踪到了后面的音符，按它演奏会整体错开，视为同步失败。0 表示不检查
     max_start_delay_s: float = 20.0

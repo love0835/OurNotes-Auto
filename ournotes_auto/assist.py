@@ -248,13 +248,11 @@ class Assist:
 
     def _play_once(self, chart: Chart, retry: bool, multi: bool = False) -> None:
         """``multi``：协力演出。右上角没有暂停按钮（协力不能暂停），所以同步完不确认画面、演奏中也不看它，
-        只靠同步结果判断打的是不是这一首。"""
+        只靠同步结果判断打的是不是这一首；点了「准备完成」还要等另外 4 个玩家，同步的时限也更宽。"""
         self._last = chart
         self.session.learned_offset_ms = self.store.learned_offset_ms + chart_offset_ms(self.cfg, self.store, chart)
         try:
-            outcome = self.session.play(
-                chart, self.stop, retry=retry, confirm_screen=not multi, guard=not multi
-            )
+            outcome = self.session.play(chart, self.stop, retry=retry, confirm_screen=not multi, multi=multi)
         except (SyncFailed, SyncTimeout, LifeDepleted) as e:
             self.stats.failures += 1
             hint = "" if multi else "（可以暂停 → 重试，会接着打）"
