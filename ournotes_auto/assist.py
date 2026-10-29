@@ -62,6 +62,7 @@ POLL_S = 0.3  # 平时隔这么久看一次画面
 PLAY_POLL_S = 0.03  # 等演奏画面时隔这么久看一次暂停按钮（不做 OCR，很快）
 LOOK_GAP_S = 0.8  # 离开乐队确认页后隔这么久用 OCR 看一眼是不是回到了别的画面（弹窗淡入、玩家反悔）
 LOADING_S = 1.5  # 画面认不出这么久就当作在加载，开始同步（加载一般 7~10s，弹窗淡入不到 1s）
+DIFF_MISSES = 3  # 协力演出：连着这么多次读不出选中的难度就撤掉认好的谱面（见 _handle）
 
 
 class Assist:
@@ -90,6 +91,7 @@ class Assist:
         self._armed: Chart | None = None  # 演奏画面出现时要打的谱面
         self._multi = False  # _armed 是在协力演出的选择难度页认的（没有暂停按钮，见 _play_once）
         self._retry = False  # _armed 是暂停重试的那一首（歌曲立即从头开始）
+        self._misses = 0  # 协力演出的选择难度页上连着几次没读出选中的难度
         self._last: Chart | None = None  # 上一局的谱面（暂停重试时接着打）
 
     def run(self) -> RunStats:
@@ -143,13 +145,27 @@ class Assist:
                 self._handle(*seen)  # 等演奏画面时回到了认得出的画面（如乐曲选择页），照常处理
         elif screen in BAND_SCREENS:
             multi = screen is Screen.MULTI_DIFFICULTY
-            # 协力演出的难度就在这一页上选，玩家多半是进来之后才改：难度变了（或者刚才没认出来）就重新认
+            # 协力演出的难度就在这一页上选，玩家多半是进来之后才改：难度变了（或者刚才没认出来）就重新认。
+            # 封面左边那个竖排大字偶尔读不出来（整帧 OCR 的检测时好时坏），这时不能当作玩家没改——
+            # 连着 DIFF_MISSES 次都读不出就撤掉认好的谱面，宁可这一局不打，也别拿改之前那个难度的谱面打
+            # 实测：玩家从 HARD 改到 EXPERT 后一直没读出来，整局是按 HARD 的谱面打的
             if multi and self._on_band:
                 _, diff, _ = multi_song(items)
-                if diff is not None and (self._armed is None or diff != self._armed.difficulty):
-                    self._on_band = False
+                if diff is None:
+                    self._misses += 1
+                    if self._misses >= DIFF_MISSES and self._armed is not None:
+                        logger.warning(
+                            "连着 %d 次没读出选中的难度，撤掉 %s：难度可能已经改了，这一局不打",
+                            self._misses,
+                            self._label(self._armed),
+                        )
+                        self._armed = None
+                else:
+                    self._misses = 0
+                    if self._armed is None or diff != self._armed.difficulty:
+                        self._on_band = False
             if not self._on_band:
-                self._on_band, self._retry = True, False
+                self._on_band, self._retry, self._misses = True, False, 0
                 self._last = None  # 换了歌：认不出这首时，暂停重试也不能拿上一首的谱面打
                 self._multi = multi
                 self._armed = self._prepare()

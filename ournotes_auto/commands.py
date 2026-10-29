@@ -126,7 +126,8 @@ def cmd_look(cfg: Config, args) -> int:
         screen, items = nav.look(blocking_ok=True)
         if args.save:
             print(nav.save_debug("look"))
-        label = nav.selected_song() if screen in (Screen.BAND_CONFIRM, Screen.CHALLENGE_BAND_CONFIRM) else None
+        on_band = (Screen.BAND_CONFIRM, Screen.CHALLENGE_BAND_CONFIRM, Screen.MULTI_DIFFICULTY)
+        label = nav.selected_song() if screen in on_band else None
     print(f"画面：{screen}（{screen.name}）")
     if label is not None:
         print(f"曲名：{label.title!r}，难度：{label.difficulty}，等级：{label.level}，封面：{label.jacket}")

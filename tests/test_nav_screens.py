@@ -83,6 +83,7 @@ def load(name: str) -> list[OcrItem]:
         ("challenge_band_confirm", Screen.CHALLENGE_BAND_CONFIRM),  # 右下是「CP 设置」，顶栏是 CP
         # 协力演出的选择难度页：标题在画面中央，右下是「准备完成」（版面和单人乐队确认页完全不同）
         ("multi_difficulty", Screen.MULTI_DIFFICULTY),
+        ("multi_difficulty_expert", Screen.MULTI_DIFFICULTY),
         ("challenge_cp_setting", Screen.CP_SETTING),
         ("challenge_cp_setting_short", Screen.CP_SETTING),
         ("home", Screen.HOME),
@@ -223,6 +224,8 @@ def test_multi_song():
     """协力演出：曲名在封面下方，难度看封面左边竖排的大字（四个难度并排那行看不出选中哪个），
     等级取那一格难度名正上方的数字。"""
     assert multi_song(load("multi_difficulty")) == ("Ether", "hard", 18)
+    # EXPERT 的竖排大字比 HARD 长，框的高和宽都更大（实机：HARD 52x115，EXPERT 58x162）
+    assert multi_song(load("multi_difficulty_expert")) == ("KiLLKiSS", "expert", 28)
 
 
 def test_multi_song_tall_difficulty():

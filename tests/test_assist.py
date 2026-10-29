@@ -4,7 +4,7 @@ import threading
 
 import pytest
 
-from ournotes_auto.assist import Assist
+from ournotes_auto.assist import DIFF_MISSES, Assist
 from ournotes_auto.charts.catalog import Catalog, Song
 from ournotes_auto.charts.model import Chart
 from ournotes_auto.config import Config
@@ -203,6 +203,36 @@ def test_multi_live_difficulty_changed(tmp_path):
     nav.selected_song = lambda: (nav.calls.append("identify"), next(labels))[1]
     assist.run()
     assert nav.calls.count("identify") == 2
+    assert [key for key, *_ in assist.session.plays] == ["100008_expert"]
+
+
+def test_multi_live_difficulty_unreadable(tmp_path):
+    """协力演出：竖排大字连着几次读不出，难度可能已经改了——撤掉认好的谱面，这一局不打。"""
+    script = [
+        (S.MULTI_DIFFICULTY, multi_items("expert")),
+        *[(S.MULTI_DIFFICULTY, [])] * DIFF_MISSES,
+        S.UNKNOWN,
+        PLAY,
+    ]
+    assist, nav, _ = make(tmp_path, script)
+    assist.run()
+    assert nav.calls == ["identify"]
+    assert assist.session.plays == []  # 宁可不打，也不拿改之前那个难度的谱面打
+
+
+def test_multi_live_difficulty_miss_tolerated(tmp_path):
+    """偶尔一帧读不出大字（整帧 OCR 的检测时好时坏）不算改难度，照原来认好的谱面打。"""
+    script = [
+        (S.MULTI_DIFFICULTY, multi_items("expert")),
+        (S.MULTI_DIFFICULTY, []),
+        (S.MULTI_DIFFICULTY, multi_items("expert")),
+        S.UNKNOWN,
+        PLAY,
+        S.RESULT,
+    ]
+    assist, nav, _ = make(tmp_path, script)
+    assist.run()
+    assert nav.calls == ["identify", "result"]
     assert [key for key, *_ in assist.session.plays] == ["100008_expert"]
 
 
