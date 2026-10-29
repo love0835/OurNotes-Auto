@@ -29,6 +29,9 @@ def load(name: str) -> list[OcrItem]:
         ("LIVE BOOST回復", "恢复LIVE BOOST"),
         ("確定要中斷演出並返回上一個畫面嗎？", "确定要终止演出并返回上一个画面吗？"),
         ("繼續", "继续"),
+        ("配對確認", "匹配确认"),  # 激奏舞台：繁中说「配對」，简中说「匹配」
+        ("正在配對", "正在匹配"),
+        ("貼圖", "表情"),
         ("乐曲选择", "乐曲选择"),  # 简中原样不动
     ],
 )
@@ -54,6 +57,8 @@ def test_localize_zh_hant(text, expected):
         ("zh_hant_title_menu", Screen.TITLE_MENU),
         ("zh_hant_user_center", Screen.USER_CENTER),
         ("zh_hant_data_download", Screen.DATA_DOWNLOAD),
+        # 认不出时会当成「没见过的弹窗，只有 OK」点掉（上游 #100）
+        ("zh_hant_arena_match_confirm", Screen.ARENA_MATCH_CONFIRM),
     ],
 )
 def test_classify_zh_hant(name, screen):
