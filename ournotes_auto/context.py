@@ -198,6 +198,7 @@ def open_context(
             restart_app=None if passive else restart_app,
             app_running=None if passive else lambda: adb.app_running(cfg.device),
             store=store,
+            app_in_front=lambda: adb.app_in_front(cfg.device),
         )
         nav.passive = passive
         # 演奏界面连击数小图 → 数字（结束后在日志里列出断连处附近的音符，调试漏判用）

@@ -127,6 +127,12 @@ def test_covered_chart_keeps_touching_next_time(monkeypatch):
         assert session.play(chart, stop=threading.Event()).sync.ok
     assert holds == [True, False]
 
+    cfg.loop.arena = True  # 激奏舞台的演奏画面没有暂停按钮：不检查是否离开了演奏画面
+    session = PlaySession(cfg, SimGame(chart, now() + 0.3), LogTouch())
+    assert session.guard_template is None
+    assert session.play(chart, stop=threading.Event()).sync.ok
+    assert holds == [True, False]
+
 
 def test_session_confirm_screen_blocks_touches():
     """跟打（confirm_screen）：同步完成时画面上没有演奏画面的暂停按钮，就一个触控都不发。"""
