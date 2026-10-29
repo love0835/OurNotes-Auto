@@ -150,7 +150,7 @@ class Assist:
             # 连着 DIFF_MISSES 次都读不出就撤掉认好的谱面，宁可这一局不打，也别拿改之前那个难度的谱面打
             # 实测：玩家从 HARD 改到 EXPERT 后一直没读出来，整局是按 HARD 的谱面打的
             if multi and self._on_band:
-                _, diff, _ = multi_song(items)
+                _, diff, _ = multi_song(items, self.nav.frame)
                 if diff is None:
                     self._misses += 1
                     if self._misses >= DIFF_MISSES and self._armed is not None:

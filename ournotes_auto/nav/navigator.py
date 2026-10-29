@@ -350,6 +350,11 @@ class GameNavigator(SongSelectMixin, DailyMixin, StoryMixin, ChallengeMixin, Acc
             self._jackets = self._jackets.result()
         return self._jackets
 
+    @property
+    def frame(self):
+        """最近一次 :meth:`look` 的截图（测试里可能是画面名，不是 ndarray）。"""
+        return self._frame
+
     def look(self, still_ok: bool = False, blocking_ok: bool = False) -> tuple[Screen, list[OcrItem]]:
         """截图并判断画面。``still_ok``：画面长时间不动也正常（等结算时歌可能还在放），不按 FROZEN_S 判断卡住。
 
@@ -757,7 +762,7 @@ class GameNavigator(SongSelectMixin, DailyMixin, StoryMixin, ChallengeMixin, Acc
         for _ in range(6):
             screen, items = self.look()
             if screen is Screen.MULTI_DIFFICULTY:  # 协力演出：曲名、难度、等级、封面都在右半边
-                label = SongLabel(*multi_song(items))
+                label = SongLabel(*multi_song(items, self._frame))
             elif screen in (Screen.BAND_CONFIRM, Screen.CHALLENGE_BAND_CONFIRM):
                 title, diff = band_confirm_song(items)
                 label = SongLabel(title, diff, parse_level(self.ocr.read_text(self._frame, LEVEL_ROI)))

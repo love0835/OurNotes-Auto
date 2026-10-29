@@ -39,6 +39,42 @@ def crop_jacket(frame: np.ndarray, roi=JACKET_ROI) -> np.ndarray:
     return frame[round(y * sy) : round((y + rh) * sy), round(x * sx) : round((x + rw) * sx)]
 
 
+MULTI_CELL_TOP, MULTI_CELL_BOTTOM = 505, 575  # 协力演出选择难度页下面那行难度格的上下边
+MULTI_CELL_HALF_W = 50  # 以难度名中心为准，左右各取这么宽算作这一格（格距约 130）
+MULTI_SELECTED_RATIO = 1.5  # 选中那格的饱和度至少要是第二名的这么多倍，否则不算数
+
+
+def most_vivid(frame: np.ndarray, centers: dict[str, float]) -> str | None:
+    """``centers``（键 → 这一格中心的 x，设计尺寸）里底色最鲜艳的那个键。
+
+    协力演出选择难度页上，选中的那格底色是难度色（HARD 橙、EXPERT 红），没选中的是统一的
+    淡色：实测平均饱和度 118 对 54~58，差了一倍。比认封面左边那个斜排的大字稳得多——那个
+    大字实机 11 次里有 4 次 OCR 读不出来，读不出时按旧逻辑会拿改难度之前的谱面打。
+
+    格子不足两个，或者最鲜艳的一格不到第二名的 :data:`MULTI_SELECTED_RATIO` 倍（画面在
+    动画中）时返回 None。
+    """
+    if len(centers) < 2:
+        return None
+    h, w = frame.shape[:2]
+    sx, sy = w / DESIGN_W, h / DESIGN_H
+    sat = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)[:, :, 1]
+    top, bottom = round(MULTI_CELL_TOP * sy), round(MULTI_CELL_BOTTOM * sy)
+    scores: dict[str, float] = {}
+    for key, cx in centers.items():
+        lo, hi = round((cx - MULTI_CELL_HALF_W) * sx), round((cx + MULTI_CELL_HALF_W) * sx)
+        cell = sat[top:bottom, max(lo, 0) : min(hi, w)]
+        if cell.size:
+            scores[key] = float(cell.mean())
+    if len(scores) < 2:
+        return None
+    best, second = sorted(scores.values())[-1], sorted(scores.values())[-2]
+    if best < second * MULTI_SELECTED_RATIO:
+        logger.debug("协力难度格的底色分不出选中的那个：%s", {k: round(v) for k, v in scores.items()})
+        return None
+    return max(scores, key=scores.get)
+
+
 class JacketMatcher:
     def __init__(
         self,

@@ -36,6 +36,7 @@ class FakeNav:
         self.result_error = result_error
         self.prev_screen = self.last_screen = S.UNKNOWN
         self.calls = []
+        self.frame = None  # 没有截图：协力的难度走认大字那条后路（见 multi_items）
 
     def _next(self):
         if not self.script:

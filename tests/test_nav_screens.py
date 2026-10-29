@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from ournotes_auto.nav.lang import localize
@@ -220,12 +221,36 @@ def test_band_confirm_song():
     assert band_confirm_song(load("band_confirm_lb_timer")) == ("无路矢", "expert")  # 繁体字都转成了简体
 
 
+def multi_frame(selected: str | None) -> np.ndarray:
+    """协力演出选择难度页的假截图：选中那格底色鲜艳，其余是统一的淡色（见 most_vivid）。"""
+    frame = np.full((720, 1280, 3), (200, 180, 175), np.uint8)  # 淡色：饱和度约 50
+    if selected is not None:
+        cx = {"easy": 808, "normal": 937, "hard": 1067, "expert": 1199}[selected]
+        frame[505:575, cx - 50 : cx + 50] = (40, 60, 220)  # 难度色：饱和度约 210
+    return frame
+
+
 def test_multi_song():
     """协力演出：曲名在封面下方，难度看封面左边竖排的大字（四个难度并排那行看不出选中哪个），
     等级取那一格难度名正上方的数字。"""
     assert multi_song(load("multi_difficulty")) == ("Ether", "hard", 18)
     # EXPERT 的竖排大字比 HARD 长，框的高和宽都更大（实机：HARD 52x115，EXPERT 58x162）
     assert multi_song(load("multi_difficulty_expert")) == ("KiLLKiSS", "expert", 28)
+
+
+def test_multi_song_by_cell_colour():
+    """给了截图就看下面那行哪一格的底色是难度色——大字的 OCR 时好时坏，底色说了算。"""
+    items = load("multi_difficulty_expert")  # 大字是 EXPERT，但底色说选中的是 HARD
+    assert multi_song(items, multi_frame("hard")) == ("KiLLKiSS", "hard", 21)
+    assert multi_song(items, multi_frame("expert")) == ("KiLLKiSS", "expert", 28)
+    # 每格底色都一样（画面在动画中）：不猜，也不退回去看大字
+    assert multi_song(items, multi_frame(None)) == ("KiLLKiSS", None, None)
+
+
+def test_multi_song_cells_unreadable_falls_back_to_big_text():
+    """下面那行没读出来（不足两格）时才退回去认大字。"""
+    items = [it for it in load("multi_difficulty_expert") if not 500 <= it.cy <= 580]
+    assert multi_song(items, multi_frame("hard")) == ("KiLLKiSS", "expert", None)
 
 
 def test_multi_song_tall_difficulty():
