@@ -188,11 +188,13 @@ class ChallengeMixin:
                 rows, i = self._challenge_rows(timeout_s)
             else:
                 raise self._fail("挑战演出乐曲选择页回不到第一首")
-            if rows[i][0] == before:
+            if same_title(rows[i][0], before):
                 logger.info("挑战演出只有一首歌：%s", before)
                 return
         rows, i = self._challenge_rows(timeout_s)
-        if rows[i][0] == before:
+        # 曲名长时每帧截断的位置不一样，照字面比会把同一首当成换好了（实测把「ノンブレス・オブリージュ」
+        # 的两次截断当成两首歌，一直在打同一首），所以按同一首歌比
+        if same_title(rows[i][0], before):
             raise self._fail("挑战演出乐曲选择页没换成下一首")
         logger.info("挑战演出换歌：%s → %s", before, rows[i][0])
 

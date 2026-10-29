@@ -2063,6 +2063,7 @@ class ChallengeGame(FakeGame):
         sel=0,
         ap=(),
         lag=0,
+        badge=False,
     ):
         super().__init__(state)
         self.cost = self.pending = cost
@@ -2075,6 +2076,7 @@ class ChallengeGame(FakeGame):
         self.diff = "expert"
         self.ap = set(ap)
         self.lag = lag
+        self.badge = badge  # 选中那行曲名旁边还读出「ALL」、下面的等级读成「Ly.」（实机见过）
         self.stale = 0
         self.panel = (self.songs[sel], (self.songs[sel], self.diff) in self.ap)
 
@@ -2104,6 +2106,8 @@ class ChallengeGame(FakeGame):
                 self.stale -= 1
             else:
                 self.panel = (self.songs[self.sel], (self.songs[self.sel], self.diff) in self.ap)
+            if self.badge:  # 和曲名在同一行，字比曲名小
+                items += [OcrItem(268, 317, 26, 15, "ALL"), OcrItem(269, 377, 31, 14, "Ly.")]
             items.append(OcrItem(784, 423, 272, 32, self.panel[0]))
             if self.panel[1]:
                 items.append(OcrItem(1064, 210, 120, 24, "ALLPERFECT"))
@@ -2280,10 +2284,14 @@ def test_invalid_challenge_cost():
         GameNavigator(cfg, None, None, None)
 
 
+@pytest.mark.parametrize("badge", [False, True])
 @pytest.mark.parametrize("count, sel", [(3, 0), (3, 1), (3, 2), (6, 5), (6, 2)])
-def test_next_challenge_song(count, sel):
-    """选中下一首；最后一首之后回到第一首（列表长时一直往上点）。"""
-    game = ChallengeGame("challenge_song_select", songs=[f"{j}曲" for j in range(count)], sel=sel)
+def test_next_challenge_song(count, sel, badge):
+    """选中下一首；最后一首之后回到第一首（列表长时一直往上点）。
+
+    ``badge``：选中那行上除曲名外还读出了别的字。它们各自算一行的话，「下一行」点的还是这一行，
+    于是一直打同一首（实机：一直在打「ノンブレス・オブリージュ」）。"""
+    game = ChallengeGame("challenge_song_select", songs=[f"{j}曲" for j in range(count)], sel=sel, badge=badge)
     nav = challenge_nav(game)
     nav.next_challenge_song()
     assert game.sel == (sel + 1) % count and game.state == "challenge_song_select"

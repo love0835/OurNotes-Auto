@@ -817,13 +817,20 @@ def cp_bar_held(items: list[OcrItem]) -> int | None:
 # 点别的行就选中它并滚到中间。列表不循环，选中第一首时上面是空的
 CHALLENGE_ROW_X = (250, 540)  # 曲名中心 x 的范围（左边是「Lv.26」、右边是「MV」标志）
 CHALLENGE_SELECTED_Y = 324
+# 两项的中心 y 相差不到这么多就算同一行：相邻两行差 100 以上，选中那行的等级标签在曲名下面约 55
+CHALLENGE_ROW_GAP = 70
 CHALLENGE_ROW_TAP_X = 420
 _CHALLENGE_NOT_TITLE = re.compile(r"\W?L\s*[vV]|[\d\s.|Il!]+$|\W?\w?MV$")
 
 
 def challenge_rows(items: list[OcrItem]) -> list[tuple[str, float]]:
-    """挑战演出乐曲选择页上能看到的各行 (曲名, 中心 y)，从上到下。"""
-    rows = []
+    """挑战演出乐曲选择页上能看到的各行 (曲名, 中心 y)，从上到下。
+
+    同一行上除曲名外还有别的字：选中那行的 ALL PERFECT 标记、等级（读成「Ly.」时逃过
+    _CHALLENGE_NOT_TITLE）。它们各自算一行的话，换歌时「下一行」点的还是这一行，于是一直
+    打同一首。所以按中心 y 分组，每组只留字最大的那一项——曲名比这些标记大一圈。
+    """
+    hits = []
     for it in items:
         t = _compact(it.text)
         cx = it.x + it.w / 2
@@ -831,8 +838,15 @@ def challenge_rows(items: list[OcrItem]) -> list[tuple[str, float]]:
             continue
         if _CHALLENGE_NOT_TITLE.match(t):
             continue
-        rows.append((it.text.strip(), it.cy))
-    return sorted(rows, key=lambda r: r[1])
+        hits.append(it)
+    groups: list[list[OcrItem]] = []
+    for it in sorted(hits, key=lambda it: it.cy):
+        if groups and it.cy - groups[-1][0].cy < CHALLENGE_ROW_GAP:
+            groups[-1].append(it)
+        else:
+            groups.append([it])
+    best = [max(g, key=lambda it: (it.h, len(it.text))) for g in groups]
+    return [(it.text.strip(), it.cy) for it in best]
 
 
 def challenge_selected(rows: list[tuple[str, float]]) -> int | None:

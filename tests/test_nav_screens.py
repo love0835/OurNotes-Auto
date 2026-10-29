@@ -85,7 +85,8 @@ def load(name: str) -> list[OcrItem]:
         ("live_options", Screen.LIVE_OPTIONS),
         ("live_top", Screen.LIVE_TOP),
         ("live_top_challenge", Screen.LIVE_TOP),  # 活动期间多了「挑战演出」
-        ("challenge_song_select", Screen.CHALLENGE_SONG_SELECT),  # 没有分类、筛选、随机，只有活动的几首歌
+        ("challenge_song_select", Screen.CHALLENGE_SONG_SELECT),
+        ("challenge_song_select_badge", Screen.CHALLENGE_SONG_SELECT),  # 没有分类、筛选、随机，只有活动的几首歌
         ("challenge_song_select_last", Screen.CHALLENGE_SONG_SELECT),
         ("challenge_song_select_ap", Screen.CHALLENGE_SONG_SELECT),  # 选中的歌已 AP（右侧有 ALL PERFECT）
         ("challenge_band_confirm", Screen.CHALLENGE_BAND_CONFIRM),  # 右下是「CP 设置」，顶栏是 CP
@@ -385,6 +386,11 @@ def test_challenge_rows():
     assert challenge_selected([("梦我梦中", 110.0), ("オリオンをなぞる", 212.0)]) is None
     rows = challenge_rows(load("challenge_song_select_ap"))  # 选中中间那首，选中行的曲名截断了
     assert [t for t, _ in rows] == ["梦我梦中", "これはぼくたちの生存の", "オリオンをなぞる"]
+    assert challenge_selected(rows) == 1
+    # 选中那行的曲名旁边还读出了「ALL」（ALL PERFECT 标记）、下面的等级读成了「Ly.」：
+    # 它们各自算一行的话，换歌时点的「下一行」还是这一行，于是一直打同一首
+    rows = challenge_rows(load("challenge_song_select_badge"))
+    assert [t for t, _ in rows] == ["ノンブレス・オブリージュ", "怪物", "潜在表明", "Crucifix X"]
     assert challenge_selected(rows) == 1
 
 
