@@ -1,14 +1,12 @@
-# What's New in v0.2.1
+# What's New in v0.2.1.1
 
-> **Note**: The new features in this version (Arena, the new recovery from stuck screens, etc.) have not been fully tested yet. You may run into all kinds of problems, and a whole song may even fail. Please report problems in the GitHub Issues.
+> This is love0835's modified version (Assist Play plus a few fixes on top of the original author's v0.2.1), not an official release by the original author. Updates are checked against [this repository](https://github.com/love0835/OurNotes-Auto) too.
 
-- **New tasks "Arena" and "AFK Farming (Arena)"**: play Arena multiplayer matches continuously, EXPERT only. **Humanize is always on in the Arena**: even with "Humanize: Random GREAT" off, about 1% of notes are hit as GREAT on purpose every round, so it never APs
-- Stats & Achievements: 「运行记录」 (run history) is paginated; 「全部演奏」 (all plays) has a new 「激奏舞台」 (Arena) tab
-- Fixed result scores losing their first digit (e.g. 3624299 read as 624299). Scores recorded before this can't be corrected, so total and average scores will be lower than they should be
-- Fixed retries failing after a sync failure on slow networks (#98), getting stuck on the menu when switching accounts (#97), and Limited-Time Missions not being claimed in Claim Dailies
-- 「全部消耗」 (use all LB) now follows the game's 3:00 day change; when stuck on an unrecognized screen it first tries to close the popup, and restarts the game if that doesn't help
+- **Assist Play now supports Co-op LIVE**: the selected difficulty is read from which cell in the row below is tinted with its difficulty colour (far more reliable than the slanted label beside the jacket), and changing it re-recognizes the song; after you tap Ready it waits up to 160 seconds for the other players
+- Fixed Challenge LIVE's "rotate songs" playing the same song forever: the ALL PERFECT badge on the selected row was counted as a row of its own
+- Fixed the Traditional Chinese client not recognizing the Arena's "配對確認" popup, which was dismissed as an unknown popup (upstream #100)
 
-Full release notes: https://github.com/ChissaQAQ/OurNotes-Auto/releases/tag/v0.2.1
+Full release notes: https://github.com/love0835/OurNotes-Auto/releases/tag/v0.2.1.1
 
 ---
 

@@ -24,7 +24,7 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
-REPO = "ChissaQAQ/OurNotes-Auto"
+REPO = "love0835/OurNotes-Auto"  # 修改版：更新从这个 fork 的 Release 检查（原仓库 ChissaQAQ/OurNotes-Auto）
 UPDATE_ASSET = "update.json"  # 每个 Release 附带的更新清单（tools/make_update.py 生成）
 RELEASE_FILE = "release.json"  # 发布包根目录里：版本、界面种类、运行环境指纹、文件清单
 FORMAT = 1  # release.json / update.json 的格式
